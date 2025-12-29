@@ -23,13 +23,17 @@ public class App {
 
     public static void main(String[] args) {
 
-        // 1) Sundays over 8 weeks from 2025-11-09
+        // 1) Sundays over 8 weeks from 2026-01-04
         List<SundayService> services = new ArrayList<>();
-        LocalDate start = LocalDate.of(2025, 11, 9);
+        LocalDate start = LocalDate.of(2026, 1, 4);
         for (int i = 0; i < 8; i++) {
             services.add(new SundayService(start.plusWeeks(i)));
         }
-        // Dates: 2025-11-09, 11-16, 11-23, 11-30, 12-07, 12-14, 12-21, 12-28
+        // Dates: 2026-01-04, 01-11, 01-18, 01-25, 02-01, 02-08, 02-15, 02-22
+        // EXCEPTION: Skip 2026-01-11 (special case)
+        services.removeIf(s -> s.getDate().equals(LocalDate.of(2026, 1, 11)));
+
+        // Now 'services' contains 7 Sundays, excluding Jan 11
 
         // 2) Roles per Sunday
         List<Role> roles = List.of(
@@ -103,7 +107,7 @@ public class App {
                 .withSolutionClass(Schedule.class)
                 .withEntityClasses(Assignment.class)
                 .withConstraintProviderClass(ScheduleConstraintProvider.class)
-                .withTerminationSpentLimit(Duration.ofSeconds(10))
+                .withTerminationSpentLimit(Duration.ofSeconds(20))
                 .withEnvironmentMode(EnvironmentMode.FULL_ASSERT);
 
         SolverFactory<Schedule> solverFactory = SolverFactory.create(solverConfig);
@@ -111,22 +115,26 @@ public class App {
 
         Schedule solvedSchedule = solver.solve(unsolvedSchedule);
 
-        // 7) Print solved schedule (sorted by date)
-        System.out.printf("%-12s %-15s %-20s%n", "Date", "Role", "Musician");
+        // 7) Full schedule as CSV
+        System.out.println("date,role,musician");
 
-        System.out.println("------------------------------------------------------------");
         solvedSchedule.getAssignmentList().stream()
                 .sorted(Comparator.comparing(a -> a.getService().getDate()))
-                .forEach(a -> System.out.printf("%-12s %-15s %-20s%n",
-                        a.getService().getDate(),
-                        a.getRole(),
-                        a.getMusician() != null ? a.getMusician().getName() : "Unassigned"));
+                .forEach(a -> {
+                    LocalDate date = a.getService().getDate();
+                    String role = a.getRole().toString();
+                    String musician = a.getMusician() != null ? a.getMusician().getName() : "Unassigned";
 
+                    System.out.printf("%s,%s,%s%n", date, role, musician);
+                });
 
+        // Blank line to separate sections
+        System.out.println();
+        System.out.println();
 
-        // 8) Alphabetical summary by musician, chronological by date
-        System.out.println("\nSummary: Roles served by each musician per date");
-        System.out.println("------------------------------------------------------------");
+        // 8) Summary section as CSV
+        System.out.println("musician,date,roles");
+
         Map<String, Map<LocalDate, List<Role>>> musicianRolesByDate =
                 solvedSchedule.getAssignmentList().stream()
                         .filter(a -> a.getMusician() != null)
@@ -143,14 +151,20 @@ public class App {
                 .forEach(entry -> {
                     String musician = entry.getKey();
                     Map<LocalDate, List<Role>> dateRolesMap = entry.getValue();
-                    System.out.printf("%-15s : %d Sundays%n", musician, dateRolesMap.size());
+
                     dateRolesMap.entrySet().stream()
                             .sorted(Map.Entry.comparingByKey()) // chronological by date
-                            .forEach(e -> System.out.printf("  %s -> %s%n", e.getKey(), e.getValue()));
-                    System.out.println();
+                            .forEach(e -> {
+                                LocalDate date = e.getKey();
+
+                                // FIX: rename this variable
+                                String rolesJoined = e.getValue().stream()
+                                        .map(Role::toString)
+                                        .collect(Collectors.joining("|"));
+
+                                System.out.printf("%s,%s,%s%n", musician, date, rolesJoined);
+                            });
                 });
-
-
 
         // 9) Score explanation (portable across Timefold versions)
         SolutionManager<Schedule, HardSoftScore> solutionManager = SolutionManager.create(solverFactory);
