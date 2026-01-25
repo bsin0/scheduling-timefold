@@ -35,7 +35,9 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 balanceWorkload(factory),
                 bandDirectorCannotBeSolo(factory),
                 couplesWithKidsCannotServeSameService(factory),
-                couplesPreferTogetherPenaltyWhenAlone(factory)
+                couplesPreferTogetherPenaltyWhenAlone(factory),
+                penalizeConsecutiveServices(factory),
+                musicianMustBeCapableOfRole(factory)
         };
 
     }
@@ -82,6 +84,16 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         Joiners.equal((pp, a1) -> pp.getSecond(), Assignment::getMusician))
                 .penalize(HardSoftScore.ONE_HARD)
                 .asConstraint("Couples (kids): partners cannot both serve same service");
+    }
+
+    private Constraint musicianMustBeCapableOfRole(ConstraintFactory factory) {
+        return factory.forEach(Assignment.class)
+                .filter(a ->
+                        a.getMusician() != null &&
+                                !a.getMusician().canPerformRole(a.getRole())
+                )
+                .penalize(HardSoftScore.ONE_HARD)
+                .asConstraint("Musician must be capable of assigned role");
     }
 
     // Soft constraints
@@ -136,5 +148,18 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .asConstraint("Couples prefer serving together (penalize when alone)");
     }
 
+    private Constraint penalizeConsecutiveServices(ConstraintFactory factory) {
+        return factory.forEach(Assignment.class)
+                .filter(a -> a.getMusician() != null)
+                .join(Assignment.class,
+                        Joiners.equal(Assignment::getMusician),
+                        Joiners.filtering((a1, a2) ->
+                                a1.getService().getDate().plusWeeks(1)
+                                        .equals(a2.getService().getDate())
+                        )
+                )
+                .penalize(HardSoftScore.ofSoft(10)) // adjust strength
+                .asConstraint("Penalize consecutive weekly assignments");
+    }
 
 }

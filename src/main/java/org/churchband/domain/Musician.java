@@ -32,4 +32,21 @@ public final class Musician {
     public boolean canPerformRole(Role role) {
         return roles.contains(role);
     }
+    public boolean isWorshipLeaderCapable() {
+        return roles.contains(Role.WORSHIP_LEADER);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Musician)) return false;
+        Musician that = (Musician) o;
+        return id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return id.hashCode();
+    }
+
 }
