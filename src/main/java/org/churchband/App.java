@@ -23,17 +23,16 @@ public class App {
 
     public static void main(String[] args) {
 
-        // 1) Sundays over 8 weeks from 2026-01-04
+        // 1) Sundays over 9 weeks from 2026-03-01
         List<SundayService> services = new ArrayList<>();
-        LocalDate start = LocalDate.of(2026, 1, 4);
-        for (int i = 0; i < 8; i++) {
+        LocalDate start = LocalDate.of(2026, 3, 1);
+        for (int i = 0; i < 9; i++) {
             services.add(new SundayService(start.plusWeeks(i)));
         }
-        // Dates: 2026-01-04, 01-11, 01-18, 01-25, 02-01, 02-08, 02-15, 02-22
-        // EXCEPTION: Skip 2026-01-11 (special case)
-        services.removeIf(s -> s.getDate().equals(LocalDate.of(2026, 1, 11)));
-
-        // Now 'services' contains 7 Sundays, excluding Jan 11
+        // E.g. Dates: 2026-01-04, 01-11, 01-18, 01-25, 02-01, 02-08, 02-15, 02-22
+        // E.g. EXCEPTION: Skip 2026-01-11 (special case) uncomment next line if need to exclude a specific date
+        //// services.removeIf(s -> s.getDate().equals(LocalDate.of(2026, 1, 11)));
+        //// Now 'services' contains 7 Sundays, excluding Jan 11
 
         // 2) Roles per Sunday
         List<Role> roles = List.of(

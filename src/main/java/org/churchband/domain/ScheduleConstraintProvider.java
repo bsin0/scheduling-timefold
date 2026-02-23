@@ -113,14 +113,14 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                         Joiners.equal(a -> a.getMusician(), Assignment::getMusician))
                 .groupBy((a, other) -> a, ConstraintCollectors.countBi()) // count of all assignments for that musician
                 // Penalize the *current* assignment by how many times the musician is already used.
-                .penalize(HardSoftScore.ofSoft(5), (a, countForMusician) -> countForMusician)
+                .penalize(HardSoftScore.ofSoft(3), (a, countForMusician) -> countForMusician)
                 .asConstraint("Incremental diversity: penalize assigning already-overused musician");
     }
 
     private Constraint balanceWorkload(ConstraintFactory factory) {
         return factory.forEach(Assignment.class)
                 .groupBy(Assignment::getMusician, ConstraintCollectors.count())
-                .penalize(HardSoftScore.ofSoft(1), (musician, count) -> {
+                .penalize(HardSoftScore.ofSoft(2), (musician, count) -> {
                     int ideal = 4; // Adjust based on your planning horizon, based off overall count at end of solver
                     return Math.abs(count - ideal);
                 })
@@ -158,7 +158,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                                         .equals(a2.getService().getDate())
                         )
                 )
-                .penalize(HardSoftScore.ofSoft(10)) // adjust strength
+                .penalize(HardSoftScore.ofSoft(3)) // adjust strength
                 .asConstraint("Penalize consecutive weekly assignments");
     }
 
