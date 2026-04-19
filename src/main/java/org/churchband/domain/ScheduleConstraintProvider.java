@@ -8,6 +8,7 @@ import ai.timefold.solver.core.api.score.stream.Joiners;
 import ai.timefold.solver.core.api.score.stream.ConstraintCollectors;
 
 import java.util.Set;
+import java.time.YearMonth;
 
 public class ScheduleConstraintProvider implements ConstraintProvider {
 
@@ -35,9 +36,11 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 balanceWorkload(factory),
                 bandDirectorCannotBeSolo(factory),
                 couplesWithKidsCannotServeSameService(factory),
-                couplesPreferTogetherPenaltyWhenAlone(factory),
+                couplesPreferTogetherSoft(factory),
+                couplesPreferTogetherStrong(factory),
                 penalizeConsecutiveServices(factory),
-                musicianMustBeCapableOfRole(factory)
+                musicianMustBeCapableOfRole(factory),
+                maxWeeksPerMonthConstraint(factory)
         };
 
     }
@@ -95,6 +98,21 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .penalize(HardSoftScore.ONE_HARD)
                 .asConstraint("Musician must be capable of assigned role");
     }
+    private Constraint maxWeeksPerMonthConstraint(ConstraintFactory factory) {
+        return factory.forEach(Assignment.class)
+                .filter(a -> a.getMusician() != null)
+                .groupBy(
+                        Assignment::getMusician,
+                        a -> YearMonth.from(a.getService().getDate()),
+                        ConstraintCollectors.count()
+                )
+                .filter((musician, yearMonth, count) ->
+                        musician.getMaxWeeksPerMonth() != Integer.MAX_VALUE
+                                && count > musician.getMaxWeeksPerMonth())
+                .penalize(HardSoftScore.ONE_HARD,
+                        (musician, yearMonth, count) -> count - musician.getMaxWeeksPerMonth())
+                .asConstraint("Musician exceeds max weeks per month");
+    }
 
     // Soft constraints
     private Constraint avoidOverbooking(ConstraintFactory factory) {
@@ -137,15 +155,26 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .asConstraint("Allowed multi-role usage rewarded");
     }
 
-    private Constraint couplesPreferTogetherPenaltyWhenAlone(ConstraintFactory factory) {
+    private Constraint couplesPreferTogetherSoft(ConstraintFactory factory) {
         return factory.forEach(PairPreference.class)
                 .filter(pp -> pp.getType() == PairPreferenceType.PREFER_TOGETHER_SAME_SERVICE_SOFT)
                 .join(Assignment.class, Joiners.equal(pp -> pp.getFirst(), Assignment::getMusician))
                 .ifNotExists(Assignment.class,
                         Joiners.equal((pp, a1) -> a1.getService(), Assignment::getService),
                         Joiners.equal((pp, a1) -> pp.getSecond(), Assignment::getMusician))
-                .penalize(HardSoftScore.ONE_SOFT)
-                .asConstraint("Couples prefer serving together (penalize when alone)");
+                .penalize(HardSoftScore.ofSoft(2))
+                .asConstraint("Couples prefer serving together (optional)");
+    }
+
+    private Constraint couplesPreferTogetherStrong(ConstraintFactory factory) {
+        return factory.forEach(PairPreference.class)
+                .filter(pp -> pp.getType() == PairPreferenceType.PREFER_TOGETHER_SAME_SERVICE_STRONG)
+                .join(Assignment.class, Joiners.equal(pp -> pp.getFirst(), Assignment::getMusician))
+                .ifNotExists(Assignment.class,
+                        Joiners.equal((pp, a1) -> a1.getService(), Assignment::getService),
+                        Joiners.equal((pp, a1) -> pp.getSecond(), Assignment::getMusician))
+                .penalize(HardSoftScore.ofSoft(8))
+                .asConstraint("Couples prefer serving together (one car - strong)");
     }
 
     private Constraint penalizeConsecutiveServices(ConstraintFactory factory) {

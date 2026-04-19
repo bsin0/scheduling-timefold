@@ -21,6 +21,23 @@ import java.util.stream.Collectors;
 
 public class App {
 
+    private static String describeMatch(List<?> indictedObjects) {
+        List<String> parts = new ArrayList<>();
+        for (Object obj : indictedObjects) {
+            if (obj instanceof Assignment a) {
+                String musician = a.getMusician() != null ? a.getMusician().getName() : "Unassigned";
+                parts.add(musician + " (" + a.getRole() + " on " + a.getService().getDate() + ")");
+            } else if (obj instanceof Musician m) {
+                // Avoid duplicating if already captured via Assignment above
+                boolean alreadyCovered = parts.stream().anyMatch(p -> p.startsWith(m.getName()));
+                if (!alreadyCovered) parts.add(m.getName());
+            } else if (obj instanceof PairPreference pp) {
+                parts.add(pp.getFirst().getName() + " & " + pp.getSecond().getName());
+            }
+        }
+        return String.join(", ", parts);
+    }
+
     public static void main(String[] args) {
 
         // 1) Sundays over 9 weeks from 2026-03-01
@@ -165,65 +182,67 @@ public class App {
                             });
                 });
 
-        // 9) Score explanation (portable across Timefold versions)
+        // 9) Score summary
         SolutionManager<Schedule, HardSoftScore> solutionManager = SolutionManager.create(solverFactory);
         ScoreExplanation<Schedule, HardSoftScore> explanation = solutionManager.explain(solvedSchedule);
+        HardSoftScore score = solvedSchedule.getScore();
 
+        System.out.println("\n============================================================");
+        System.out.printf("  SCORE: %s  |  %s%n",
+                score.toShortString(),
+                score.isFeasible() ? "✓ FEASIBLE (no hard violations)" : "✗ INFEASIBLE (hard violations exist)");
+        System.out.println("============================================================");
 
-        // Build an index from each ConstraintMatch to its (non-deprecated) constraint ID.
-        Map<ai.timefold.solver.core.api.score.constraint.ConstraintMatch<HardSoftScore>, String> matchToId = new HashMap<>();
+        List<String> hardLines = new ArrayList<>();
+        List<String> softLines = new ArrayList<>();
+
         explanation.getConstraintMatchTotalMap().forEach((constraintId, cmt) -> {
-            cmt.getConstraintMatchSet().forEach(cm -> matchToId.put(cm, constraintId));
-        });
+            HardSoftScore impact = cmt.getScore();
+            int matchCount = cmt.getConstraintMatchSet().size();
+            String label = constraintId.contains("/")
+                    ? constraintId.substring(constraintId.lastIndexOf('/') + 1)
+                    : constraintId;
 
+            boolean isHardViolation = impact.hardScore() < 0;
+            boolean isSoftPenalty   = impact.softScore() < 0;
+            boolean isSoftReward    = impact.softScore() > 0;
 
-// --- Print ALL matches by constraint (hard + soft), with indicted objects:
-        System.out.println("\n=== All Constraint Matches ===");
-        explanation.getConstraintMatchTotalMap().forEach((constraintId, cmt) -> {
-            System.out.printf("%s -> total impact: %s%n", constraintId, cmt.getScore().toShortString());
-            cmt.getConstraintMatchSet().forEach(cm -> {
-                System.out.printf("  match: %s | objects: %s%n",
-                        cm.getScore().toShortString(), cm.getIndictedObjectList());
-            });
-        });
+            if (!isHardViolation && !isSoftPenalty && !isSoftReward) return;
 
-// --- Print HARD violations only:
-        System.out.println("\n=== HARD Constraint Matches Only ===");
-        explanation.getConstraintMatchTotalMap().forEach((constraintId, cmt) -> {
-            boolean hasNegativeHardImpact = !cmt.getScore().isFeasible();
-            if (hasNegativeHardImpact) {
-                System.out.printf("%s -> total impact: %s%n", constraintId, cmt.getScore().toShortString());
-                cmt.getConstraintMatchSet().forEach(cm -> {
-                    if (!cm.getScore().isFeasible()) {
-                        System.out.printf("  match: %s | objects: %s%n",
-                                cm.getScore().toShortString(), cm.getIndictedObjectList());
-                    }
-                });
+            String header = String.format("  %s %-50s %6s  (%d match%s)",
+                    isHardViolation || isSoftPenalty ? "✗" : "✓",
+                    label, impact.toShortString(), matchCount, matchCount == 1 ? "" : "es");
+
+            List<String> matchLines = new ArrayList<>();
+            if (isHardViolation || isSoftPenalty) {
+                cmt.getConstraintMatchSet().stream()
+                        .sorted(Comparator.comparing(cm -> cm.getScore().toShortString()))
+                        .forEach(cm -> {
+                            String detail = describeMatch(cm.getIndictedObjectList());
+                            if (!detail.isBlank()) {
+                                matchLines.add("      → " + detail);
+                            }
+                        });
             }
+
+            List<String> target = isHardViolation ? hardLines : softLines;
+            target.add(header);
+            target.addAll(matchLines);
         });
 
-// --- Per assignment (who broke what), using the constraint ID index (no deprecated methods):
-        System.out.println("\n=== HARD Violations Per Assignment ===");
-        explanation.getIndictmentMap().forEach((obj, indictment) -> {
-            if (obj instanceof Assignment a) {
-                var hardMatches = indictment.getConstraintMatchSet().stream()
-                        .filter(cm -> !cm.getScore().isFeasible())
-                        .toList();
-                if (!hardMatches.isEmpty()) {
-                    System.out.printf("Assignment: %s on %s for role %s%n",
-                            a.getMusician() != null ? a.getMusician().getName() : "Unassigned",
-                            a.getService().getDate(),
-                            a.getRole());
-                    hardMatches.forEach(cm -> {
-                        String id = matchToId.get(cm); // e.g., "org.churchband/Unavailable musician assigned"
-                        System.out.printf("  broke: %s | impact: %s%n", id, cm.getScore().toShortString());
-                    });
-                    System.out.println("----");
-                }
-            }
-        });
+        System.out.println("\nHARD CONSTRAINTS:");
+        if (hardLines.isEmpty()) {
+            System.out.println("  ✓ All satisfied");
+        } else {
+            hardLines.forEach(System.out::println);
+        }
 
-
-
+        System.out.println("\nSOFT CONSTRAINTS:");
+        if (softLines.isEmpty()) {
+            System.out.println("  (none triggered)");
+        } else {
+            softLines.forEach(System.out::println);
+        }
+        System.out.println("============================================================\n");
     }
 }

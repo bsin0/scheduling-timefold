@@ -126,7 +126,8 @@ public final class RosterIndex {
 
         Set<String> validTypes = Set.of(
                 "NOT_TOGETHER_SAME_SERVICE_HARD",
-                "PREFER_TOGETHER_SAME_SERVICE_SOFT"
+                "PREFER_TOGETHER_SAME_SERVICE_SOFT",
+                "PREFER_TOGETHER_SAME_SERVICE_STRONG"
         );
 
         int rowNum = 1;

@@ -89,6 +89,27 @@ public final class RosterCsv {
                     issues.add("Row " + row + ": invalid date \"" + date + "\"; expected ISO yyyy-MM-dd.");
                 }
             }
+            // Validate max_weeks_per_month (optional column)
+            Map<String, Integer> hdrMap = headerIndex(lines.get(0), "id", "name", "roles", "available_dates");
+// Check if max_weeks_per_month column exists
+            String[] allHdr = lines.get(0).split(",", -1);
+            int maxWkIdx = -1;
+            for (int i = 0; i < allHdr.length; i++) {
+                if (allHdr[i].trim().equalsIgnoreCase("max_weeks_per_month")) { maxWkIdx = i; break; }
+            }
+
+// ... inside the per-row loop, after the dates validation:
+            if (maxWkIdx >= 0 && maxWkIdx < cols.length) {
+                String raw = cols[maxWkIdx].trim();
+                if (!raw.isEmpty()) {
+                    try {
+                        int v = Integer.parseInt(raw);
+                        if (v < 1) issues.add("Row " + row + ": max_weeks_per_month must be >= 1, got: " + v);
+                    } catch (NumberFormatException e) {
+                        issues.add("Row " + row + ": max_weeks_per_month is not a valid integer: \"" + raw + "\".");
+                    }
+                }
+            }
         }
         return issues;
     }
@@ -97,14 +118,23 @@ public final class RosterCsv {
         List<String> lines = Files.readAllLines(csvPath, StandardCharsets.UTF_8);
         if (lines.isEmpty()) return List.of();
 
-        Map<String, Integer> idx = headerIndex(lines.get(0), "id", "name", "roles", "available_dates");
-        int idIdx = idx.get("id"), nameIdx = idx.get("name"), rolesIdx = idx.get("roles"), datesIdx = idx.get("available_dates");
+        // Parse header — max_weeks_per_month is optional
+        String[] hdrCols = lines.get(0).split(",", -1);
+        Map<String, Integer> hdrIdx = new LinkedHashMap<>();
+        for (int i = 0; i < hdrCols.length; i++) {
+            hdrIdx.put(hdrCols[i].trim().toLowerCase(Locale.ROOT), i);
+        }
+        int idIdx    = hdrIdx.get("id");
+        int nameIdx  = hdrIdx.get("name");
+        int rolesIdx = hdrIdx.get("roles");
+        int datesIdx = hdrIdx.get("available_dates");
+        int maxWeeksIdx = hdrIdx.getOrDefault("max_weeks_per_month", -1); // optional
 
         List<Musician> out = new ArrayList<>();
         for (String line : lines.subList(1, lines.size())) {
             if (line.isBlank()) continue;
             String[] cols = line.split(",", -1);
-            String id = cols[idIdx].trim();
+            String id   = cols[idIdx].trim();
             String name = cols[nameIdx].trim();
 
             Set<Role> roles = Arrays.stream(cols[rolesIdx].split(";", -1))
@@ -117,7 +147,16 @@ public final class RosterCsv {
                     .map(LocalDate::parse)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
 
-            out.add(new Musician(id, name, roles, dates));
+            // Read max_weeks_per_month — default to Integer.MAX_VALUE if absent/blank
+            int maxWeeks = Integer.MAX_VALUE;
+            if (maxWeeksIdx >= 0 && maxWeeksIdx < cols.length) {
+                String raw = cols[maxWeeksIdx].trim();
+                if (!raw.isEmpty()) {
+                    maxWeeks = Integer.parseInt(raw);
+                }
+            }
+
+            out.add(new Musician(id, name, roles, dates, maxWeeks));
         }
         return out;
     }
@@ -142,7 +181,8 @@ public final class RosterCsv {
         int firstIdx = idx.get("first_id"), secondIdx = idx.get("second_id"), typeIdx = idx.get("type");
         Set<String> validTypes = Set.of(
                 "NOT_TOGETHER_SAME_SERVICE_HARD",
-                "PREFER_TOGETHER_SAME_SERVICE_SOFT"
+                "PREFER_TOGETHER_SAME_SERVICE_SOFT",
+                "PREFER_TOGETHER_SAME_SERVICE_STRONG"
         );
 
         int row = 1;

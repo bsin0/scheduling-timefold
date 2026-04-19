@@ -5,5 +5,8 @@ public enum PairPreferenceType {
     NOT_TOGETHER_SAME_SERVICE_HARD,
 
     /** Soft: partners prefer to serve in the same service. */
-    PREFER_TOGETHER_SAME_SERVICE_SOFT
+    PREFER_TOGETHER_SAME_SERVICE_SOFT,
+
+    /** Soft (strong): really prefer together, e.g. one car. */
+    PREFER_TOGETHER_SAME_SERVICE_STRONG
 }
