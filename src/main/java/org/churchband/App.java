@@ -42,7 +42,7 @@ public class App {
 
         // 1) Sundays over 9 weeks from 2026-03-01
         List<SundayService> services = new ArrayList<>();
-        LocalDate start = LocalDate.of(2026, 3, 1);
+        LocalDate start = LocalDate.of(2026, 5, 3);
         for (int i = 0; i < 9; i++) {
             services.add(new SundayService(start.plusWeeks(i)));
         }

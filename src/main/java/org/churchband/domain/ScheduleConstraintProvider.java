@@ -173,7 +173,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .ifNotExists(Assignment.class,
                         Joiners.equal((pp, a1) -> a1.getService(), Assignment::getService),
                         Joiners.equal((pp, a1) -> pp.getSecond(), Assignment::getMusician))
-                .penalize(HardSoftScore.ofSoft(8))
+                .penalize(HardSoftScore.ofSoft(10))
                 .asConstraint("Couples prefer serving together (one car - strong)");
     }
 
