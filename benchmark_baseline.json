@@ -1,0 +1,22 @@
+{
+  "timestamp": "2025-07-05T04:07:17Z",
+  "description": "Baseline BEFORE removing duplicate constraint (musicianMustBeCapableOfRole)",
+  "horizon": "9 Sundays from 2026-07-05",
+  "score": {
+    "hard": 0,
+    "soft": -945
+  },
+  "constraints": {
+    "All satisfied": {"hard": 0, "soft": 0, "matches": 0},
+    "Allowed multi-role usage rewarded": {"hard": 0, "soft": 18, "matches": 18},
+    "Balance workload across musicians": {"hard": 0, "soft": -72, "matches": 31},
+    "Couples prefer serving together (one car - strong)": {"hard": 0, "soft": -20, "matches": 2},
+    "Incremental diversity: penalize assigning already-overused musician": {"hard": 0, "soft": -852, "matches": 90},
+    "Musician overbooked": {"hard": 0, "soft": -1, "matches": 1},
+    "Penalize consecutive weekly assignments": {"hard": 0, "soft": -18, "matches": 6}
+  },
+  "performance": {
+    "time_seconds": 46,
+    "evaluations": "not captured"
+  }
+}

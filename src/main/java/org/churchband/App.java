@@ -1,23 +1,32 @@
-
 package org.churchband;
 
-import ai.timefold.solver.core.api.solver.SolverFactory;
-import ai.timefold.solver.core.api.solver.Solver;
-import ai.timefold.solver.core.config.solver.SolverConfig;
-import ai.timefold.solver.core.config.solver.EnvironmentMode;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-import ai.timefold.solver.core.api.solver.SolutionManager;
-import ai.timefold.solver.core.api.score.ScoreExplanation;
-import ai.timefold.solver.core.api.score.buildin.hardsoft.HardSoftScore;
-
-import org.churchband.domain.*;
+import org.churchband.domain.Assignment;
+import org.churchband.domain.Musician;
+import org.churchband.domain.PairPreference;
+import org.churchband.domain.Role;
+import org.churchband.domain.Schedule;
+import org.churchband.domain.ScheduleConstraintProvider;
+import org.churchband.domain.SundayService;
 import org.churchband.util.RosterCsv;
 
-import java.time.LocalDate;
-import java.time.Duration;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.stream.Collectors;
+import ai.timefold.solver.core.api.score.ScoreExplanation;
+import ai.timefold.solver.core.api.score.buildin.hardsoft.HardSoftScore;
+import ai.timefold.solver.core.api.solver.SolutionManager;
+import ai.timefold.solver.core.api.solver.Solver;
+import ai.timefold.solver.core.api.solver.SolverFactory;
+import ai.timefold.solver.core.config.solver.EnvironmentMode;
+import ai.timefold.solver.core.config.solver.SolverConfig;
 
 public class App {
 
@@ -26,13 +35,13 @@ public class App {
         for (Object obj : indictedObjects) {
             if (obj instanceof Assignment a) {
                 String musician = a.getMusician() != null ? a.getMusician().getName() : "Unassigned";
-                parts.add(musician + " (" + a.getRole() + " on " + a.getService().getDate() + ")");
+                parts.add(musician + "(" + a.getRole() + " on " + a.getService().getDate() + ")");
             } else if (obj instanceof Musician m) {
                 // Avoid duplicating if already captured via Assignment above
                 boolean alreadyCovered = parts.stream().anyMatch(p -> p.startsWith(m.getName()));
                 if (!alreadyCovered) parts.add(m.getName());
             } else if (obj instanceof PairPreference pp) {
-                parts.add(pp.getFirst().getName() + " & " + pp.getSecond().getName());
+                parts.add(pp.getFirst().getName() + "&" + pp.getSecond().getName());
             }
         }
         return String.join(", ", parts);
@@ -55,6 +64,8 @@ public class App {
         List<Role> roles = List.of(
                 Role.WORSHIP_LEADER,
                 Role.VOCALIST,
+                Role.VOCALIST_2,
+                Role.VOCALIST_3,
                 Role.BASSIST,
                 Role.DRUMMER,
                 Role.KEYBOARDIST,
@@ -82,11 +93,11 @@ public class App {
         List<Musician> musicians;
         try {
             musicians = RosterCsv.loadMusiciansCsv(musiciansCsv);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new RuntimeException("Failed to load musicians CSV: " + e.getMessage(), e);
         }
 
-        // id → musician index
+        // id -> musician index
         Map<String, Musician> byId = musicians.stream()
                 .collect(Collectors.toMap(Musician::getId, m -> m, (a, b) -> b, LinkedHashMap::new));
 
@@ -103,7 +114,7 @@ public class App {
         List<PairPreference> pairPreferences;
         try {
             pairPreferences = RosterCsv.loadPairPreferencesCsv(pairsCsv, byId);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new RuntimeException("Failed to load pairs CSV: " + e.getMessage(), e);
         }
 

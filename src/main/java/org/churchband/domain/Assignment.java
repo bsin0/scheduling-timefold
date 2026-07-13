@@ -9,7 +9,7 @@ public class Assignment {
     private SundayService service;
     private Role role; // Now an enum
 
-    @PlanningVariable(valueRangeProviderRefs = "musicianRange")
+    @PlanningVariable(valueRangeProviderRefs = "musicianRange", allowsUnassigned = true)
     private Musician musician;
 
     public Assignment() {

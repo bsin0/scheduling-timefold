@@ -1,4 +1,3 @@
-
 package org.churchband.domain;
 
 import ai.timefold.solver.core.api.domain.solution.PlanningSolution;

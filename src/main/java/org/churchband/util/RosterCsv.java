@@ -1,19 +1,27 @@
 
 package org.churchband.util;
 
-import org.churchband.domain.Musician;
-import org.churchband.domain.PairPreference;
-import org.churchband.domain.PairPreferenceType;
-import org.churchband.domain.Role;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.churchband.domain.Musician;
+import org.churchband.domain.PairPreference;
+import org.churchband.domain.PairPreferenceType;
+import org.churchband.domain.Role;
 
 /**
  * CSV loaders and validators for musicians and pair preferences.
@@ -90,7 +98,6 @@ public final class RosterCsv {
                 }
             }
             // Validate max_weeks_per_month (optional column)
-            Map<String, Integer> hdrMap = headerIndex(lines.get(0), "id", "name", "roles", "available_dates");
 // Check if max_weeks_per_month column exists
             String[] allHdr = lines.get(0).split(",", -1);
             int maxWkIdx = -1;

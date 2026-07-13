@@ -30,11 +30,18 @@ public final class Musician {
         return availableDates.contains(date);
     }
     public boolean canPerformRole(Role role) {
+        // VOCALIST_2 and VOCALIST_3 are optional backup vocalist slots, not
+        // distinct skills. Rather than requiring musicians.csv to tag people
+        // with three separate role labels, anyone qualified as VOCALIST is
+        // automatically treated as qualified for VOCALIST_2 and VOCALIST_3 too.
+        if (role == Role.VOCALIST_2 || role == Role.VOCALIST_3) {
+            return roles.contains(Role.VOCALIST);
+        }
         return roles.contains(role);
     }
-    public boolean isWorshipLeaderCapable() {
-        return roles.contains(Role.WORSHIP_LEADER);
-    }
+//    public boolean isWorshipLeaderCapable() {
+//        return roles.contains(Role.WORSHIP_LEADER);
+//    }
 
     @Override
     public boolean equals(Object o) {
