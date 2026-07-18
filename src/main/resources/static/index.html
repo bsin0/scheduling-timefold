@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Church Band Roster</title>
+<style>
+  :root {
+    --ink: #2b2420;
+    --ink-soft: #6b5f56;
+    --paper: #faf6ef;
+    --panel: #ffffff;
+    --line: #e4dcd0;
+    --accent: #a6572c;
+    --accent-soft: #f0dcc8;
+    --good: #3f6f4f;
+    --good-soft: #e4efe6;
+    --bad: #a33a3a;
+    --bad-soft: #f6e2e0;
+    --radius: 10px;
+    --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  header {
+    padding: 2.25rem 2rem 1.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.9rem;
+    margin: 0 0 0.15rem;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+  }
+
+  #auth-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 2rem;
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--line);
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+
+  #auth-banner.authed { background: var(--good-soft); }
+
+  #auth-banner button {
+    margin-left: auto;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem;
+    display: grid;
+    gap: 2rem;
+  }
+
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+
+  section h2 {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    margin: 0 0 0.25rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+
+  section h2 .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  section > p.hint {
+    margin: 0 0 1.1rem;
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 0.85rem;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.85; }
+  button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--ink);
+  }
+  button.danger {
+    background: var(--bad);
+    border-color: var(--bad);
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  input[type="text"], input[type="number"], input[type="date"], input[type="password"], select {
+    font-family: inherit;
+    font-size: 0.88rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  td {
+    padding: 0.55rem 0.6rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  .role-tag {
+    display: inline-block;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    padding: 0.12rem 0.4rem;
+    border-radius: 4px;
+    margin: 0 0.2rem 0.2rem 0;
+  }
+
+  .status-msg {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 6px;
+    margin-top: 0.75rem;
+    display: none;
+  }
+  .status-msg.show { display: block; }
+  .status-msg.error { background: var(--bad-soft); color: var(--bad); }
+  .status-msg.ok { background: var(--good-soft); color: var(--good); }
+
+  .row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .row label {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .score-badge {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+  }
+  .score-badge.feasible { background: var(--good-soft); color: var(--good); }
+  .score-badge.infeasible { background: var(--bad-soft); color: var(--bad); }
+
+  .weight-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.8rem;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .weight-row:last-child { border-bottom: none; }
+  .weight-row .name {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+  .weight-row .desc {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    grid-column: 1 / -1;
+    margin-top: -0.4rem;
+  }
+
+  details.constraint {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.7rem;
+  }
+  details.constraint summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  details.constraint .matches {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    white-space: pre-wrap;
+  }
+
+  .role-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+  }
+  .role-checkbox:has(input:checked) {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .role-checkbox input { cursor: pointer; }
+
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+  }
+  th.sortable:hover { color: var(--accent); }
+  th.sortable .arrow {
+    display: inline-block;
+    width: 0.8em;
+    opacity: 0.5;
+  }
+  th.sortable.active .arrow { opacity: 1; color: var(--accent); }
+
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+  .cal-header h3 {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    margin: 0;
+  }
+  .cal-nav button {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    user-select: none;
+  }
+  .cal-dow {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+    padding: 0.3rem 0;
+    text-transform: uppercase;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    cursor: pointer;
+    background: var(--paper);
+    border: 1px solid transparent;
+  }
+  .cal-day.empty-cell { cursor: default; visibility: hidden; }
+  .cal-day.blocked {
+    background: var(--bad-soft);
+    color: var(--bad);
+    font-weight: 600;
+  }
+  .cal-day.today { border-color: var(--accent); }
+  .cal-day:not(.empty-cell):hover { background: var(--accent-soft); }
+  .cal-day.drag-preview { background: var(--accent-soft); }
+
+  .empty {
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Church Band Roster</h1>
+  <p>Manage musicians, blockouts, and generate the Sunday schedule.</p>
+</header>
+
+<div id="auth-banner">
+  <span id="auth-status">Not signed in.</span>
+  <button id="auth-btn" class="secondary">Sign in</button>
+</div>
+
+<main>
+
+  <!-- ===================== MUSICIANS & ROLES ===================== -->
+  <section id="musicians-section">
+    <h2><span class="eyebrow">01</span> Musicians &amp; Roles</h2>
+    <p class="hint">Everyone in the roster pool, and what they're qualified to do.</p>
+
+    <div class="row" style="margin-bottom:0.5rem;">
+      <label>Search
+        <input type="text" id="m-filter" placeholder="Name, ID, or role...">
+      </label>
+      <label>Show
+        <select id="m-page-size">
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="musicians-table-wrap">
+      <p class="empty">Sign in to load musicians.</p>
+    </div>
+
+    <div id="m-pagination" class="row" style="margin-top:0.75rem; justify-content:center;"></div>
+
+    <div class="row" style="margin-top:1rem;">
+      <button id="new-musician-btn" class="secondary">+ Add musician</button>
+    </div>
+
+    <div id="musician-form" style="display:none; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--line);">
+      <div class="row">
+        <label>ID (unique, e.g. adrian_d)
+          <input type="text" id="mf-id">
+        </label>
+        <label>Name
+          <input type="text" id="mf-name">
+        </label>
+        <label>Max weeks/month (blank = no limit)
+          <input type="number" id="mf-maxweeks" min="1">
+        </label>
+      </div>
+      <div class="row">
+        <label style="width:100%;">Roles
+          <div id="mf-roles-checkboxes" style="display:flex; flex-wrap:wrap; gap:0.5rem 1rem; margin-top:0.3rem;"></div>
+        </label>
+      </div>
+      <div class="row">
+        <button id="mf-save-btn">Save musician</button>
+        <button id="mf-cancel-btn" class="secondary">Cancel</button>
+      </div>
+    </div>
+
+    <div id="musicians-status" class="status-msg"></div>
+  </section>
+
+  <!-- ===================== BLOCKOUTS ===================== -->
+  <section id="blockouts-section">
+    <h2><span class="eyebrow">02</span> Blockouts</h2>
+    <p class="hint">Dates a musician is unavailable. Everyone's available by default — only add exceptions.</p>
+
+    <div class="row">
+      <label>Musician
+        <select id="bo-musician-select"><option value="">Sign in first</option></select>
+      </label>
+    </div>
+
+    <div id="bo-calendar-wrap">
+      <p class="empty">Choose a musician to see their calendar.</p>
+    </div>
+
+    <p class="hint" style="margin-top:0.75rem;">Click a day to toggle it. Click and drag across days to block a range.</p>
+
+    <div id="bo-list-wrap"></div>
+
+    <div id="blockouts-status" class="status-msg"></div>
+  </section>
+
+  <!-- ===================== SOLVE SETTINGS ===================== -->
+  <section id="solve-section">
+    <h2><span class="eyebrow">03</span> Solve Settings</h2>
+    <p class="hint">Set the roster window, tune constraint weights, then generate the schedule.</p>
+
+    <div class="row">
+      <label>First Sunday
+        <input type="date" id="solve-start-date">
+      </label>
+      <label>Number of weeks
+        <input type="number" id="solve-weeks" min="1" max="26" value="9">
+      </label>
+      <label>Solve time (seconds)
+        <input type="number" id="solve-time" min="1" max="300" value="20">
+      </label>
+      <button id="solve-btn">Solve roster</button>
+      <button id="stop-btn" class="danger" style="display:none;">Stop</button>
+      <span id="solve-spinner" style="display:none; color:var(--ink-soft); font-size:0.85rem;">Solving…</span>
+    </div>
+
+    <details style="margin-top:1rem;">
+      <summary style="cursor:pointer; font-size:0.9rem; color:var(--ink-soft);">Tune constraint weights</summary>
+      <div id="weights-wrap" style="margin-top:0.75rem;">
+        <p class="empty">Sign in to load weights.</p>
+      </div>
+    </details>
+
+    <div id="solve-status" class="status-msg"></div>
+  </section>
+
+  <!-- ===================== RESULTS ===================== -->
+  <section id="results-section">
+    <h2><span class="eyebrow">04</span> Results</h2>
+    <p class="hint">The generated schedule and how it scored.</p>
+
+    <div id="results-wrap">
+      <p class="empty">No roster generated yet.</p>
+    </div>
+
+    <div id="solve-progress-feed" style="display:none; margin-top:1rem; font-family: var(--font-mono); font-size:0.8rem; color:var(--ink-soft); max-height:8rem; overflow-y:auto; border:1px solid var(--line); border-radius:6px; padding:0.6rem 0.8rem; background:var(--paper);"></div>
+
+    <div style="margin-top:1rem;">
+      <button id="explain-btn" class="secondary" disabled>Show constraint breakdown</button>
+    </div>
+    <div id="explain-wrap" style="margin-top:1rem;"></div>
+  </section>
+
+  <!-- ===================== MEMBER BREAKDOWN ===================== -->
+  <section id="breakdown-section">
+    <h2><span class="eyebrow">05</span> Member Breakdown</h2>
+    <p class="hint">What each musician is serving, from the most recent roster.</p>
+
+    <div id="breakdown-wrap">
+      <p class="empty">Solve a roster to see this.</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ============================================================
+// Auth: HTTP Basic credentials, held in memory only (never
+// localStorage). Re-prompted if the page is reloaded.
+// ============================================================
+let authHeader = null;
+
+function setAuthHeader(username, password) {
+  authHeader = "Basic " + btoa(username + ":" + password);
+}
+
+async function apiFetch(path, options = {}) {
+  if (!authHeader) throw new Error("Not signed in.");
+  const headers = Object.assign({}, options.headers, {
+    "Authorization": authHeader,
+    "Content-Type": "application/json"
+  });
+  const res = await fetch(path, Object.assign({}, options, { headers }));
+  if (res.status === 401) {
+    authHeader = null;
+    updateAuthBanner(false);
+    throw new Error("Sign-in expired or incorrect. Please sign in again.");
+  }
+  return res;
+}
+
+function updateAuthBanner(signedIn) {
+  const banner = document.getElementById("auth-banner");
+  const status = document.getElementById("auth-status");
+  const btn = document.getElementById("auth-btn");
+  if (signedIn) {
+    banner.classList.add("authed");
+    status.textContent = "Signed in as admin.";
+    btn.textContent = "Sign out";
+  } else {
+    banner.classList.remove("authed");
+    status.textContent = "Not signed in.";
+    btn.textContent = "Sign in";
+  }
+}
+
+document.getElementById("auth-btn").addEventListener("click", async () => {
+  if (authHeader) {
+    authHeader = null;
+    updateAuthBanner(false);
+    return;
+  }
+  const username = prompt("Admin username:");
+  if (!username) return;
+  const password = prompt("Admin password:");
+  if (password === null) return;
+  setAuthHeader(username, password);
+
+  try {
+    const res = await fetch("/api/musicians", { headers: { "Authorization": authHeader } });
+    if (res.status === 401) {
+      alert("Incorrect username or password.");
+      authHeader = null;
+      return;
+    }
+    updateAuthBanner(true);
+    await loadRoleOptions();
+    loadMusicians();
+    loadWeights();
+  } catch (e) {
+    alert("Could not reach the server: " + e.message);
+    authHeader = null;
+  }
+});
+
+function showStatus(elId, message, isError) {
+  const el = document.getElementById(elId);
+  el.textContent = message;
+  el.className = "status-msg show " + (isError ? "error" : "ok");
+  setTimeout(() => el.classList.remove("show"), 4000);
+}
+
+// ============================================================
+// Role list — fetched from the backend (source of truth: the Role
+// enum in Java) rather than hardcoded here, so a new role added to
+// Role.java shows up automatically without editing this file.
+// ============================================================
+let roleOptions = [];
+
+async function loadRoleOptions() {
+  try {
+    const res = await apiFetch("/api/roles");
+    roleOptions = await res.json();
+  } catch (e) {
+    showStatus("musicians-status", "Could not load role list: " + e.message, true);
+  }
+}
+
+function renderRoleCheckboxes(selectedRoles) {
+  const wrap = document.getElementById("mf-roles-checkboxes");
+  wrap.innerHTML = roleOptions.map(role => {
+    const checked = selectedRoles.includes(role) ? "checked" : "";
+    return `<label class="role-checkbox">
+      <input type="checkbox" value="${role}" ${checked}> ${role}
+    </label>`;
+  }).join("");
+}
+
+function getCheckedRoles() {
+  return Array.from(document.querySelectorAll('#mf-roles-checkboxes input:checked')).map(cb => cb.value);
+}
+
+// ============================================================
+// Section 01: Musicians & Roles
+// ============================================================
+let musiciansCache = [];
+
+async function loadMusicians() {
+  try {
+    const res = await apiFetch("/api/musicians");
+    musiciansCache = await res.json();
+    renderMusiciansTable();
+    renderBlockoutMusicianSelect();
+  } catch (e) {
+    showStatus("musicians-status", e.message, true);
+  }
+}
+
+// Table state: which column is sorted, direction, current filter text,
+// current page, and page size. Kept simple as plain variables since
+// there's only ever one musicians table on the page.
+let mSortColumn = "name";
+let mSortAsc = true;
+let mFilterText = "";
+let mCurrentPage = 1;
+
+function getFilteredSortedMusicians() {
+  let list = musiciansCache;
+
+  if (mFilterText.trim()) {
+    const q = mFilterText.trim().toLowerCase();
+    list = list.filter(m =>
+      m.name.toLowerCase().includes(q) ||
+      m.id.toLowerCase().includes(q) ||
+      m.roles.some(r => r.toLowerCase().includes(q))
+    );
+  }
+
+  const sorted = [...list].sort((a, b) => {
+    let av, bv;
+    if (mSortColumn === "name") { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+    else if (mSortColumn === "roles") { av = a.roles.length; bv = b.roles.length; }
+    else if (mSortColumn === "maxWeeks") { av = a.maxWeeksPerMonth ?? Infinity; bv = b.maxWeeksPerMonth ?? Infinity; }
+    else if (mSortColumn === "blockouts") { av = a.blockedDates.length; bv = b.blockedDates.length; }
+    else { av = a.name; bv = b.name; }
+
+    if (av < bv) return mSortAsc ? -1 : 1;
+    if (av > bv) return mSortAsc ? 1 : -1;
+    return 0;
+  });
+
+  return sorted;
+}
+
+function renderMusiciansTable() {
+  const wrap = document.getElementById("musicians-table-wrap");
+  const pagWrap = document.getElementById("m-pagination");
+  const pageSize = parseInt(document.getElementById("m-page-size").value, 10);
+
+  const filtered = getFilteredSortedMusicians();
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = musiciansCache.length === 0
+      ? '<p class="empty">No musicians yet — add one below.</p>'
+      : '<p class="empty">No musicians match your search.</p>';
+    pagWrap.innerHTML = "";
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  if (mCurrentPage > totalPages) mCurrentPage = totalPages;
+  const start = (mCurrentPage - 1) * pageSize;
+  const pageItems = filtered.slice(start, start + pageSize);
+
+  const arrow = (col) => {
+    if (mSortColumn !== col) return '<span class="arrow">↕</span>';
+    return `<span class="arrow">${mSortAsc ? "↑" : "↓"}</span>`;
+  };
+  const activeClass = (col) => mSortColumn === col ? "sortable active" : "sortable";
+
+  let html = `<table><thead><tr>
+    <th class="${activeClass('name')}" data-sort="name">Name ${arrow('name')}</th>
+    <th class="${activeClass('roles')}" data-sort="roles">Roles ${arrow('roles')}</th>
+    <th class="${activeClass('maxWeeks')}" data-sort="maxWeeks">Max weeks/mo ${arrow('maxWeeks')}</th>
+    <th class="${activeClass('blockouts')}" data-sort="blockouts">Blockouts ${arrow('blockouts')}</th>
+    <th></th>
+  </tr></thead><tbody>`;
+
+  for (const m of pageItems) {
+    const roles = m.roles.map(r => `<span class="role-tag">${r}</span>`).join("");
+    html += `<tr>
+      <td>${escapeHtml(m.name)}<br><span style="color:var(--ink-soft); font-size:0.78rem;">${escapeHtml(m.id)}</span></td>
+      <td>${roles}</td>
+      <td>${m.maxWeeksPerMonth ?? "—"}</td>
+      <td>${m.blockedDates.length}</td>
+      <td>
+        <button class="secondary" data-edit="${m.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Edit</button>
+        <button class="danger" data-delete="${m.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Delete</button>
+      </td>
+    </tr>`;
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll("[data-edit]").forEach(btn =>
+    btn.addEventListener("click", () => openMusicianForm(btn.dataset.edit)));
+  wrap.querySelectorAll("[data-delete]").forEach(btn =>
+    btn.addEventListener("click", () => deleteMusician(btn.dataset.delete)));
+  wrap.querySelectorAll("th[data-sort]").forEach(th =>
+    th.addEventListener("click", () => {
+      const col = th.dataset.sort;
+      if (mSortColumn === col) mSortAsc = !mSortAsc;
+      else { mSortColumn = col; mSortAsc = true; }
+      renderMusiciansTable();
+    }));
+
+  renderPagination(pagWrap, mCurrentPage, totalPages, filtered.length, start, pageItems.length);
+}
+
+function renderPagination(wrap, current, totalPages, totalItems, start, shownCount) {
+  if (totalPages <= 1) {
+    wrap.innerHTML = `<span style="color:var(--ink-soft); font-size:0.82rem;">${totalItems} musician${totalItems === 1 ? "" : "s"}</span>`;
+    return;
+  }
+  let html = `<span style="color:var(--ink-soft); font-size:0.82rem; margin-right:0.5rem;">
+    Showing ${start + 1}–${start + shownCount} of ${totalItems}
+  </span>`;
+  html += `<button class="secondary" id="m-prev" ${current === 1 ? "disabled" : ""} style="font-size:0.78rem; padding:0.3rem 0.6rem;">← Prev</button>`;
+  html += `<span style="font-size:0.82rem; padding:0 0.5rem;">Page ${current} of ${totalPages}</span>`;
+  html += `<button class="secondary" id="m-next" ${current === totalPages ? "disabled" : ""} style="font-size:0.78rem; padding:0.3rem 0.6rem;">Next →</button>`;
+  wrap.innerHTML = html;
+
+  const prevBtn = document.getElementById("m-prev");
+  const nextBtn = document.getElementById("m-next");
+  if (prevBtn) prevBtn.addEventListener("click", () => { mCurrentPage--; renderMusiciansTable(); });
+  if (nextBtn) nextBtn.addEventListener("click", () => { mCurrentPage++; renderMusiciansTable(); });
+}
+
+document.getElementById("m-filter").addEventListener("input", (e) => {
+  mFilterText = e.target.value;
+  mCurrentPage = 1;
+  renderMusiciansTable();
+});
+document.getElementById("m-page-size").addEventListener("change", () => {
+  mCurrentPage = 1;
+  renderMusiciansTable();
+});
+
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+let editingMusicianId = null;
+
+function openMusicianForm(id) {
+  const form = document.getElementById("musician-form");
+  form.style.display = "block";
+  if (id) {
+    const m = musiciansCache.find(x => x.id === id);
+    editingMusicianId = id;
+    document.getElementById("mf-id").value = m.id;
+    document.getElementById("mf-id").disabled = true;
+    document.getElementById("mf-name").value = m.name;
+    document.getElementById("mf-maxweeks").value = m.maxWeeksPerMonth ?? "";
+    renderRoleCheckboxes(m.roles);
+  } else {
+    editingMusicianId = null;
+    document.getElementById("mf-id").value = "";
+    document.getElementById("mf-id").disabled = false;
+    document.getElementById("mf-name").value = "";
+    document.getElementById("mf-maxweeks").value = "";
+    renderRoleCheckboxes([]);
+  }
+}
+
+document.getElementById("new-musician-btn").addEventListener("click", () => openMusicianForm(null));
+document.getElementById("mf-cancel-btn").addEventListener("click", () => {
+  document.getElementById("musician-form").style.display = "none";
+});
+
+document.getElementById("mf-save-btn").addEventListener("click", async () => {
+  const id = document.getElementById("mf-id").value.trim();
+  const name = document.getElementById("mf-name").value.trim();
+  const roles = getCheckedRoles();
+  const maxWeeksRaw = document.getElementById("mf-maxweeks").value.trim();
+
+  if (!id || !name || roles.length === 0) {
+    showStatus("musicians-status", "ID, name, and at least one role are required.", true);
+    return;
+  }
+  const maxWeeksPerMonth = maxWeeksRaw ? parseInt(maxWeeksRaw, 10) : null;
+
+  const body = JSON.stringify({ id, name, roles, maxWeeksPerMonth });
+  try {
+    let res;
+    if (editingMusicianId) {
+      res = await apiFetch(`/api/musicians/${encodeURIComponent(editingMusicianId)}`, { method: "PUT", body });
+    } else {
+      res = await apiFetch("/api/musicians", { method: "POST", body });
+    }
+    if (!res.ok) {
+      const msg = res.status === 409 ? "A musician with that ID already exists." : "Save failed (" + res.status + ").";
+      showStatus("musicians-status", msg, true);
+      return;
+    }
+    document.getElementById("musician-form").style.display = "none";
+    showStatus("musicians-status", "Saved.", false);
+    loadMusicians();
+  } catch (e) {
+    showStatus("musicians-status", e.message, true);
+  }
+});
+
+async function deleteMusician(id) {
+  if (!confirm(`Delete ${id}? This also removes their blockouts.`)) return;
+  try {
+    const res = await apiFetch(`/api/musicians/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 204) {
+      showStatus("musicians-status", "Delete failed.", true);
+      return;
+    }
+    showStatus("musicians-status", "Deleted.", false);
+    loadMusicians();
+  } catch (e) {
+    showStatus("musicians-status", e.message, true);
+  }
+}
+
+// ============================================================
+// Section 02: Blockouts (calendar view)
+// ============================================================
+let calMusicianId = null;
+let calYear, calMonth; // calMonth is 0-indexed
+let dragStartDate = null;
+let dragging = false;
+
+function renderBlockoutMusicianSelect() {
+  const sel = document.getElementById("bo-musician-select");
+  sel.innerHTML = musiciansCache.map(m => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
+  if (musiciansCache.length > 0) {
+    const today = new Date();
+    calYear = today.getFullYear();
+    calMonth = today.getMonth();
+    calMusicianId = musiciansCache[0].id;
+    renderCalendar();
+  }
+  sel.addEventListener("change", () => {
+    calMusicianId = sel.value;
+    renderCalendar();
+  });
+}
+
+function toIsoDate(y, m, d) {
+  const mm = String(m + 1).padStart(2, "0");
+  const dd = String(d).padStart(2, "0");
+  return `${y}-${mm}-${dd}`;
+}
+
+function renderCalendar() {
+  const wrap = document.getElementById("bo-calendar-wrap");
+  const m = musiciansCache.find(x => x.id === calMusicianId);
+  if (!m) {
+    wrap.innerHTML = '<p class="empty">Choose a musician to see their calendar.</p>';
+    document.getElementById("bo-list-wrap").innerHTML = "";
+    return;
+  }
+
+  const blocked = new Set(m.blockedDates);
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const firstOfMonth = new Date(calYear, calMonth, 1);
+  const startDow = firstOfMonth.getDay(); // 0 = Sunday
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const todayIso = toIsoDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+  let html = `<div class="cal-header">
+    <button class="secondary cal-nav" id="cal-prev">← Prev</button>
+    <h3>${monthNames[calMonth]} ${calYear}</h3>
+    <button class="secondary cal-nav" id="cal-next">Next →</button>
+  </div>`;
+
+  html += '<div class="cal-grid">';
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => html += `<div class="cal-dow">${d}</div>`);
+  for (let i = 0; i < startDow; i++) html += '<div class="cal-day empty-cell"></div>';
+  for (let day = 1; day <= daysInMonth; day++) {
+    const iso = toIsoDate(calYear, calMonth, day);
+    const isBlocked = blocked.has(iso);
+    const isToday = iso === todayIso;
+    html += `<div class="cal-day ${isBlocked ? "blocked" : ""} ${isToday ? "today" : ""}" data-date="${iso}">${day}</div>`;
+  }
+  html += "</div>";
+
+  wrap.innerHTML = html;
+
+  document.getElementById("cal-prev").addEventListener("click", () => {
+    calMonth--;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCalendar();
+  });
+  document.getElementById("cal-next").addEventListener("click", () => {
+    calMonth++;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderCalendar();
+  });
+
+  wireCalendarDragSelect(wrap, m);
+  renderBlockoutList(calMusicianId);
+}
+
+function wireCalendarDragSelect(wrap, musician) {
+  const cells = wrap.querySelectorAll(".cal-day:not(.empty-cell)");
+
+  cells.forEach(cell => {
+    cell.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      dragging = true;
+      dragStartDate = cell.dataset.date;
+      updateDragPreview(cells, dragStartDate, dragStartDate);
+    });
+    cell.addEventListener("mouseenter", () => {
+      if (dragging) updateDragPreview(cells, dragStartDate, cell.dataset.date);
+    });
+  });
+
+  document.addEventListener("mouseup", async () => {
+    if (!dragging) return;
+    dragging = false;
+    const endCell = wrap.querySelector(".cal-day.drag-preview:last-of-type");
+    cells.forEach(c => c.classList.remove("drag-preview"));
+    if (!dragStartDate) return;
+
+    const previewDates = Array.from(wrap.querySelectorAll("[data-drag-end]"));
+    const endDate = wrap.dataset.dragEnd || dragStartDate;
+    await applyBlockoutRange(musician.id, dragStartDate, endDate);
+    dragStartDate = null;
+  }, { once: false });
+}
+
+function updateDragPreview(cells, startIso, endIso) {
+  const wrap = document.getElementById("bo-calendar-wrap");
+  wrap.dataset.dragEnd = endIso;
+  const [lo, hi] = startIso <= endIso ? [startIso, endIso] : [endIso, startIso];
+  cells.forEach(c => {
+    const d = c.dataset.date;
+    c.classList.toggle("drag-preview", d >= lo && d <= hi);
+  });
+}
+
+async function applyBlockoutRange(musicianId, dateA, dateB) {
+  const [start, end] = dateA <= dateB ? [dateA, dateB] : [dateB, dateA];
+
+  // Single-day click (start === end): toggle. If already blocked, remove
+  // it; otherwise add it. A drag across multiple days always adds the
+  // whole range (toggling a mixed range would be ambiguous).
+  if (start === end) {
+    const m = musiciansCache.find(x => x.id === musicianId);
+    const alreadyBlocked = m.blockedDates.includes(start);
+    if (alreadyBlocked) {
+      await removeBlockout(musicianId, start, true);
+    } else {
+      await addBlockoutRange(musicianId, start, null);
+    }
+  } else {
+    await addBlockoutRange(musicianId, start, end);
+  }
+  await loadMusicians();
+  calMusicianId = musicianId;
+  renderCalendar();
+}
+
+async function addBlockoutRange(musicianId, date, endDate) {
+  const body = { date };
+  if (endDate) body.endDate = endDate;
+  try {
+    const res = await apiFetch(`/api/musicians/${encodeURIComponent(musicianId)}/blockouts`, {
+      method: "POST", body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      showStatus("blockouts-status", "Could not add blockout.", true);
+      return;
+    }
+    showStatus("blockouts-status", endDate ? "Blockout range added." : "Blockout added.", false);
+  } catch (e) {
+    showStatus("blockouts-status", e.message, true);
+  }
+}
+
+function renderBlockoutList(musicianId) {
+  const m = musiciansCache.find(x => x.id === musicianId);
+  const wrap = document.getElementById("bo-list-wrap");
+  if (!m || m.blockedDates.length === 0) {
+    wrap.innerHTML = '';
+    return;
+  }
+  let html = `<p class="hint" style="margin-top:1rem;">${m.blockedDates.length} blocked date${m.blockedDates.length === 1 ? "" : "s"}:</p>`;
+  html += '<div style="display:flex; flex-wrap:wrap; gap:0.4rem;">';
+  for (const d of [...m.blockedDates].sort()) {
+    html += `<span class="role-tag" style="background:var(--bad-soft); color:var(--bad); cursor:pointer;" data-remove="${d}">${d} ×</span>`;
+  }
+  html += "</div>";
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll("[data-remove]").forEach(tag =>
+    tag.addEventListener("click", () => removeBlockout(musicianId, tag.dataset.remove)));
+}
+
+async function removeBlockout(musicianId, date, skipRerender) {
+  try {
+    const res = await apiFetch(`/api/musicians/${encodeURIComponent(musicianId)}/blockouts/${date}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 204) {
+      showStatus("blockouts-status", "Could not remove blockout.", true);
+      return;
+    }
+    showStatus("blockouts-status", "Blockout removed.", false);
+    if (!skipRerender) {
+      await loadMusicians();
+      calMusicianId = musicianId;
+      renderCalendar();
+    }
+  } catch (e) {
+    showStatus("blockouts-status", e.message, true);
+  }
+}
+
+// ============================================================
+// Section 03: Solve Settings + weight tuning
+// ============================================================
+async function loadWeights() {
+  const wrap = document.getElementById("weights-wrap");
+  try {
+    const res = await apiFetch("/api/weights");
+    const weights = await res.json();
+    if (weights.length === 0) {
+      wrap.innerHTML = '<p class="empty">No weights found.</p>';
+      return;
+    }
+    wrap.innerHTML = weights.map(w => `
+      <div class="weight-row">
+        <span class="name">${w.name}</span>
+        <input type="number" data-weight="${w.name}" value="${w.value}" style="width:5rem;">
+        <button class="secondary" data-save-weight="${w.name}" style="font-size:0.75rem; padding:0.3rem 0.6rem;">Save</button>
+        <span class="desc">${escapeHtml(w.description || "")}</span>
+      </div>
+    `).join("");
+    wrap.querySelectorAll("[data-save-weight]").forEach(btn =>
+      btn.addEventListener("click", () => saveWeight(btn.dataset.saveWeight)));
+  } catch (e) {
+    wrap.innerHTML = `<p class="empty">${e.message}</p>`;
+  }
+}
+
+async function saveWeight(name) {
+  const input = document.querySelector(`[data-weight="${name}"]`);
+  const value = parseInt(input.value, 10);
+  try {
+    const res = await apiFetch(`/api/weights/${encodeURIComponent(name)}`, {
+      method: "PUT", body: JSON.stringify({ value })
+    });
+    if (!res.ok) {
+      showStatus("solve-status", `Could not update ${name}.`, true);
+      return;
+    }
+    showStatus("solve-status", `${name} updated to ${value}.`, false);
+  } catch (e) {
+    showStatus("solve-status", e.message, true);
+  }
+}
+
+let activeEventSource = null;
+let activeSessionId = null;
+
+document.getElementById("solve-btn").addEventListener("click", async () => {
+  const startDate = document.getElementById("solve-start-date").value;
+  const numberOfWeeks = parseInt(document.getElementById("solve-weeks").value, 10);
+  const solveTimeSeconds = parseInt(document.getElementById("solve-time").value, 10) || 20;
+  if (!startDate || !numberOfWeeks) {
+    showStatus("solve-status", "Choose a start date and number of weeks.", true);
+    return;
+  }
+
+  const spinner = document.getElementById("solve-spinner");
+  const solveBtn = document.getElementById("solve-btn");
+  const stopBtn = document.getElementById("stop-btn");
+
+  try {
+    const res = await apiFetch("/api/solve/start", {
+      method: "POST", body: JSON.stringify({ startDate, numberOfWeeks, solveTimeSeconds })
+    });
+    if (!res.ok) {
+      showStatus("solve-status", "Could not start solve.", true);
+      return;
+    }
+    const { sessionId } = await res.json();
+    activeSessionId = sessionId;
+
+    spinner.textContent = `Solving… this can take up to ${solveTimeSeconds}s`;
+    spinner.style.display = "inline";
+    solveBtn.disabled = true;
+    stopBtn.style.display = "inline-block";
+    document.getElementById("explain-btn").disabled = true;
+
+    const feed = document.getElementById("solve-progress-feed");
+    feed.style.display = "block";
+    feed.innerHTML = "";
+
+    const es = new EventSource(`/api/solve/stream/${sessionId}`);
+    activeEventSource = es;
+
+    es.addEventListener("update", (e) => {
+      const progress = JSON.parse(e.data);
+      appendProgressLine(feed, progress);
+    });
+
+    es.addEventListener("done", (e) => {
+      const snapshot = JSON.parse(e.data);
+      appendProgressLine(feed, snapshot, true);
+      renderResults(snapshot);
+      renderBreakdown(snapshot);
+      finishSolveUI();
+      document.getElementById("explain-btn").disabled = false;
+      showStatus("solve-status", "Roster generated.", false);
+    });
+
+    es.addEventListener("error", (e) => {
+      showStatus("solve-status", "Solve stream error.", true);
+      finishSolveUI();
+    });
+
+    es.onerror = () => {
+      // EventSource fires a generic error on normal stream close too;
+      // only surface it if we didn't already get a "done" event.
+      if (activeEventSource === es) finishSolveUI();
+    };
+  } catch (e) {
+    showStatus("solve-status", e.message, true);
+    finishSolveUI();
+  }
+});
+
+document.getElementById("stop-btn").addEventListener("click", async () => {
+  if (!activeSessionId) return;
+  try {
+    await apiFetch(`/api/solve/stop/${activeSessionId}`, { method: "POST" });
+    showStatus("solve-status", "Stopping…", false);
+  } catch (e) {
+    showStatus("solve-status", e.message, true);
+  }
+});
+
+function appendProgressLine(feed, progress, isFinal) {
+  const time = new Date().toLocaleTimeString();
+  const feasLabel = progress.feasible ? "feasible" : "infeasible";
+  const prefix = isFinal ? "✓ final" : "improved";
+  const line = document.createElement("div");
+  line.textContent = `${time} — ${prefix}: ${progress.score} (${feasLabel})`;
+  if (isFinal) line.style.color = "var(--good)";
+  feed.appendChild(line);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function finishSolveUI() {
+  document.getElementById("solve-spinner").style.display = "none";
+  document.getElementById("solve-btn").disabled = false;
+  document.getElementById("stop-btn").style.display = "none";
+  if (activeEventSource) {
+    activeEventSource.close();
+    activeEventSource = null;
+  }
+  activeSessionId = null;
+}
+
+// ============================================================
+// Section 04: Results
+// ============================================================
+function renderResults(result) {
+  const wrap = document.getElementById("results-wrap");
+  const feasClass = result.feasible ? "feasible" : "infeasible";
+  const feasLabel = result.feasible ? "Feasible" : "Infeasible — some role could not be filled";
+
+  const byDate = {};
+  for (const a of result.assignments) {
+    if (!byDate[a.date]) byDate[a.date] = [];
+    byDate[a.date].push(a);
+  }
+
+  let html = `<div class="row"><span class="score-badge ${feasClass}">${result.score} · ${feasLabel}</span></div>`;
+  for (const date of Object.keys(byDate).sort()) {
+    html += `<h3 style="font-family: var(--font-display); font-size:1.05rem; margin: 1.1rem 0 0.4rem;">${date}</h3>`;
+    html += '<table><thead><tr><th>Role</th><th>Musician</th></tr></thead><tbody>';
+    for (const a of byDate[date]) {
+      const name = a.musicianName || '<span class="empty">Unassigned</span>';
+      html += `<tr><td>${a.role}</td><td>${name}</td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  wrap.innerHTML = html;
+}
+
+function renderBreakdown(result) {
+  const wrap = document.getElementById("breakdown-wrap");
+
+  const byMusician = {};
+  for (const a of result.assignments) {
+    if (!a.musicianName) continue; // skip unassigned slots
+    if (!byMusician[a.musicianName]) byMusician[a.musicianName] = [];
+    byMusician[a.musicianName].push(a);
+  }
+
+  const names = Object.keys(byMusician).sort();
+  if (names.length === 0) {
+    wrap.innerHTML = '<p class="empty">No assignments in this roster.</p>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Musician</th><th>Serving</th></tr></thead><tbody>';
+  for (const name of names) {
+    const entries = byMusician[name].sort((a, b) => a.date.localeCompare(b.date));
+    const list = entries.map(a => `${a.date} — ${a.role}`).join("<br>");
+    html += `<tr><td>${escapeHtml(name)}<br><span style="color:var(--ink-soft); font-size:0.78rem;">${entries.length} assignment${entries.length === 1 ? "" : "s"}</span></td><td>${list}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+}
+
+document.getElementById("explain-btn").addEventListener("click", async () => {
+  const wrap = document.getElementById("explain-wrap");
+  try {
+    const res = await apiFetch("/api/solve/explain");
+    if (!res.ok) {
+      wrap.innerHTML = '<p class="empty">Could not load explanation.</p>';
+      return;
+    }
+    const data = await res.json();
+    let html = "";
+    for (const c of data.constraints) {
+      const icon = c.isViolation ? "✗" : "✓";
+      let matches = "";
+      if (c.matchDescriptions.length > 0) {
+        matches = `<div class="matches">${c.matchDescriptions.join("\n")}</div>`;
+      }
+      html += `<details class="constraint">
+        <summary><span>${icon} ${escapeHtml(c.name)}</span><span>${c.impact} (${c.matchCount})</span></summary>
+        ${matches}
+      </details>`;
+    }
+    wrap.innerHTML = html;
+  } catch (e) {
+    wrap.innerHTML = `<p class="empty">${e.message}</p>`;
+  }
+});
+</script>
+
+</body>
+</html>

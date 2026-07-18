@@ -37,3 +37,9 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### # Stores data in a file called "churchband" in a "data" folder at the
+# project root (created automatically if it doesn't exist). This means
+# your roster data survives between app restarts — it's not wiped each
+# time, unlike an in-memory H2 database.
+data/

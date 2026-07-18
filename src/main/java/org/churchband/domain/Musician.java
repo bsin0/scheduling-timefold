@@ -9,26 +9,34 @@ public final class Musician {
     private final String id;
     private final String name;
     private final Set<Role> roles;
-    private final Set<LocalDate> availableDates;
+
+    // Blockouts, not an allow-list. Musicians are available by default;
+    // this set holds the specific dates they've said they CAN'T serve.
+    // This matches how people actually think ("I'm out on the 12th"),
+    // and means a musician who joins mid-schedule or forgets to update
+    // their dates defaults to available rather than silently excluded.
+    private final Set<LocalDate> blockedDates;
+
     private final int maxWeeksPerMonth; // Integer.MAX_VALUE means no limit
 
-    public Musician(String id, String name, Set<Role> roles, Set<LocalDate> availableDates, int maxWeeksPerMonth) {
+    public Musician(String id, String name, Set<Role> roles, Set<LocalDate> blockedDates, int maxWeeksPerMonth) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
         this.roles = Objects.requireNonNull(roles, "roles");
-        this.availableDates = Objects.requireNonNull(availableDates, "availableDates");
+        this.blockedDates = Objects.requireNonNull(blockedDates, "blockedDates");
         this.maxWeeksPerMonth = maxWeeksPerMonth;
     }
 
     public String getId() { return id; }
     public String getName() { return name; }
     public Set<Role> getRoles() { return roles; }
-    public Set<LocalDate> getAvailableDates() { return availableDates; }
+    public Set<LocalDate> getBlockedDates() { return blockedDates; }
     public int getMaxWeeksPerMonth() { return maxWeeksPerMonth; }
 
     public boolean isAvailableOn(LocalDate date) {
-        return availableDates.contains(date);
+        return !blockedDates.contains(date);
     }
+
     public boolean canPerformRole(Role role) {
         // VOCALIST_2 and VOCALIST_3 are optional backup vocalist slots, not
         // distinct skills. Rather than requiring musicians.csv to tag people
@@ -39,9 +47,6 @@ public final class Musician {
         }
         return roles.contains(role);
     }
-//    public boolean isWorshipLeaderCapable() {
-//        return roles.contains(Role.WORSHIP_LEADER);
-//    }
 
     @Override
     public boolean equals(Object o) {

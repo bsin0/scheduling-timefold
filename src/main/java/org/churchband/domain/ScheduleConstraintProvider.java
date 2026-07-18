@@ -12,17 +12,26 @@ import ai.timefold.solver.core.api.score.stream.Joiners;
 
 public class ScheduleConstraintProvider implements ConstraintProvider {
 
-    // Scoring for constraints
-    //// Soft scores
-    private static final int MULTI_ROLE_REWARD = 1;
-    private static final int VOCALIST_DOUBLE_UP_REWARD = 4;
+    // ============================================================
+    // Fixed thresholds/targets that shape HOW a constraint behaves,
+    // not just its weight. These stay as constants — only the reward/
+    // penalty MAGNITUDE is runtime-configurable (via ConstraintWeights),
+    // not structural numbers like "how many assignments counts as
+    // overbooked" or "what's the ideal assignment count".
+    // ============================================================
+    private static final int OVERBOOKING_THRESHOLD = 4;
+    private static final int IDEAL_ASSIGNMENTS_PER_MUSICIAN = 4;
+
+    // ============================================================
+    // Multi-role eligibility
+    // ============================================================
 
     private static final Set<Set<Role>> ALLOWED_MULTI_ROLE_COMBINATIONS = Set.of(
             Set.of(Role.WORSHIP_LEADER, Role.GUITARIST),
             Set.of(Role.BAND_DIRECTOR, Role.GUITARIST),
             Set.of(Role.BAND_DIRECTOR, Role.KEYBOARDIST),
             Set.of(Role.BAND_DIRECTOR, Role.BASSIST),
-           // Vocalist doubling — usually guitarists or keyboardists singing backup
+
             Set.of(Role.GUITARIST, Role.VOCALIST),
             Set.of(Role.GUITARIST, Role.VOCALIST_2),
             Set.of(Role.GUITARIST, Role.VOCALIST_3),
@@ -30,76 +39,79 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
             Set.of(Role.KEYBOARDIST, Role.VOCALIST_2),
             Set.of(Role.KEYBOARDIST, Role.VOCALIST_3)
     );
+    private static final Set<Role> VOCALIST_ROLES = Set.of(Role.VOCALIST_2, Role.VOCALIST_3);
     // Subset used only to give vocalist-doubling a different reward than the
     // other multi-role combos, since it's more resource-efficient to fill a
     // backup vocalist slot from an existing instrumentalist than to bring in
     // a separate person.
-    private static final Set<Role> VOCALIST_ROLES = Set.of(Role.VOCALIST_2, Role.VOCALIST_3);
 
     private boolean isAllowedMultiRole(Assignment a1, Assignment a2) {
-        // Same role cannot be multi-role (should have been caught by avoidSameServiceDoubleBooking)
         if (a1.getRole().equals(a2.getRole())) {
             return false;
         }
-        Set<Role> roles = Set.of(a1.getRole(), a2.getRole());
         Musician m = a1.getMusician();
+        Set<Role> roles = Set.of(a1.getRole(), a2.getRole());
         return ALLOWED_MULTI_ROLE_COMBINATIONS.contains(roles)
                 && m != null
                 && m.canPerformRole(a1.getRole())
                 && m.canPerformRole(a2.getRole());
     }
+
     @Override
     public Constraint[] defineConstraints(ConstraintFactory factory) {
         return new Constraint[]{
                 mandatoryRoleMustBeAssigned(factory),
                 musicianMustBeAvailable(factory),
                 musicianMustBeQualified(factory),
-                avoidOverbooking(factory),
                 avoidSameServiceDoubleBooking(factory),
+                bandDirectorCannotBeSolo(factory),
+                couplesWithKidsCannotServeSameService(factory),
+                maxWeeksPerMonthConstraint(factory),
+
+                avoidOverbooking(factory),
                 rewardAllowedMultiRole(factory),
                 rewardVocalistDoubleUp(factory),
                 incrementalDiversityPenalty(factory),
                 balanceWorkload(factory),
-                bandDirectorCannotBeSolo(factory),
-                couplesWithKidsCannotServeSameService(factory),
                 couplesPreferTogetherSoft(factory),
                 couplesPreferTogetherStrong(factory),
                 penalizeConsecutiveServices(factory),
-                maxWeeksPerMonthConstraint(factory),
                 secondVocalistPreference(factory),
                 thirdVocalistPreference(factory)
         };
-
     }
     // Hard constraints
-
+    
     // Assignment.musician is allowsUnassigned = true globally (needed so VOCALIST_2 /
     // VOCALIST_3 can be left blank). That means every role, including mandatory ones,
     // is technically optional from the solver's point of view unless we say otherwise.
     // This constraint puts that requirement back for every role except the two
     // optional vocalist slots, using forEachIncludingUnassigned since forEach()
     // silently skips unassigned entities.
+
     private Constraint mandatoryRoleMustBeAssigned(ConstraintFactory factory) {
         return factory.forEachIncludingUnassigned(Assignment.class)
                 .filter(a -> a.getMusician() == null
-                    && a.getRole() != Role.VOCALIST_2
-                    && a.getRole() != Role.VOCALIST_3)
+                        && a.getRole() != Role.VOCALIST_2
+                        && a.getRole() != Role.VOCALIST_3)
                 .penalize(HardSoftScore.ONE_HARD)
                 .asConstraint("Mandatory role left unassigned");
-}
+    }
+
     private Constraint musicianMustBeAvailable(ConstraintFactory factory) {
         return factory.forEach(Assignment.class)
                 .filter(a -> a.getMusician() != null && !a.getMusician().isAvailableOn(a.getService().getDate()))
                 .penalize(HardSoftScore.ONE_HARD)
                 .asConstraint("Unavailable musician assigned");
     }
+
     private Constraint musicianMustBeQualified(ConstraintFactory factory) {
-    return factory.forEach(Assignment.class)
-            .filter(a -> a.getMusician() != null
-                    && !a.getMusician().canPerformRole(a.getRole()))
-            .penalize(HardSoftScore.ONE_HARD)
-            .asConstraint("Unqualified musician assigned");
+        return factory.forEach(Assignment.class)
+                .filter(a -> a.getMusician() != null && !a.getMusician().canPerformRole(a.getRole()))
+                .penalize(HardSoftScore.ONE_HARD)
+                .asConstraint("Unqualified musician assigned");
     }
+
     private Constraint bandDirectorCannotBeSolo(ConstraintFactory factory) {
         return factory.forEach(Assignment.class)
                 .filter(a -> a.getMusician() != null)
@@ -109,6 +121,7 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .penalize(HardSoftScore.ONE_HARD)
                 .asConstraint("Band Director cannot be solo");
     }
+
     private Constraint avoidSameServiceDoubleBooking(ConstraintFactory factory) {
         return factory.forEach(Assignment.class)
                 .filter(a -> a.getMusician() != null)
@@ -149,11 +162,19 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
     }
 
     // Soft constraints
+    // Each of these now calls ConstraintWeights.get("NAME") instead of
+    // referencing a local constant. ConstraintWeights.get() reads from a
+    // static in-memory map that RosterService populates from the
+    // database (via WeightService) immediately before each solve — see
+    // ConstraintWeights.java for details on why this indirection exists.
+
     private Constraint avoidOverbooking(ConstraintFactory factory) {
         return factory.forEach(Assignment.class)
+                .filter(a -> a.getMusician() != null)
                 .groupBy(Assignment::getMusician, ConstraintCollectors.count())
-                .filter((musician, count) -> count > 4)
-                .penalize(HardSoftScore.ofSoft(1), (musician, count) -> count - 4)
+                .filter((musician, count) -> count > OVERBOOKING_THRESHOLD)
+                .penalize(HardSoftScore.ofSoft(ConstraintWeights.get("OVERBOOKING_PENALTY")),
+                        (musician, count) -> count - OVERBOOKING_THRESHOLD)
                 .asConstraint("Musician overbooked");
     }
 
@@ -163,65 +184,66 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                 .join(Assignment.class,
                         Joiners.equal(a -> a.getMusician(), Assignment::getMusician))
                 .groupBy((a, other) -> a, ConstraintCollectors.countBi())
-                .penalize(HardSoftScore.ofSoft(3), (a, countForMusician) -> countForMusician)
+                .penalize(HardSoftScore.ofSoft(ConstraintWeights.get("DIVERSITY_PENALTY")),
+                        (a, countForMusician) -> countForMusician)
                 .asConstraint("Incremental diversity: penalize assigning already-overused musician");
     }
 
     private Constraint balanceWorkload(ConstraintFactory factory) {
         return factory.forEach(Assignment.class)
+                .filter(a -> a.getMusician() != null)
                 .groupBy(Assignment::getMusician, ConstraintCollectors.count())
-                .penalize(HardSoftScore.ofSoft(2), (musician, count) -> {
-                    int ideal = 4;
-                    return Math.abs(count - ideal);
-                })
+                .penalize(HardSoftScore.ofSoft(ConstraintWeights.get("WORKLOAD_BALANCE_PENALTY")),
+                        (musician, count) -> Math.abs(count - IDEAL_ASSIGNMENTS_PER_MUSICIAN))
                 .asConstraint("Balance workload across musicians");
     }
+
     private Constraint rewardAllowedMultiRole(ConstraintFactory factory) {
-    return factory.forEach(Assignment.class)
-            .filter(a -> a.getMusician() != null)
-            .join(Assignment.class,
-                    Joiners.equal(Assignment::getService),
-                    Joiners.equal(Assignment::getMusician))
-            .filter((a1, a2) -> !a1.equals(a2)
-                    && isAllowedMultiRole(a1, a2)
-                    && !VOCALIST_ROLES.contains(a1.getRole())
-                    && !VOCALIST_ROLES.contains(a2.getRole()))
-            .reward(HardSoftScore.ofSoft(MULTI_ROLE_REWARD))
-            .asConstraint("Allowed multi-role usage rewarded");
-}
+        return factory.forEach(Assignment.class)
+                .filter(a -> a.getMusician() != null)
+                .join(Assignment.class,
+                        Joiners.equal(Assignment::getService),
+                        Joiners.equal(Assignment::getMusician))
+                .filter((a1, a2) -> !a1.equals(a2)
+                        && isAllowedMultiRole(a1, a2)
+                        && !VOCALIST_ROLES.contains(a1.getRole())
+                        && !VOCALIST_ROLES.contains(a2.getRole()))
+                .reward(HardSoftScore.ofSoft(ConstraintWeights.get("MULTI_ROLE_REWARD")))
+                .asConstraint("Allowed multi-role usage rewarded");
+    }
 
     private Constraint rewardVocalistDoubleUp(ConstraintFactory factory) {
-    return factory.forEach(Assignment.class)
-            .filter(a -> a.getMusician() != null)
-            .join(Assignment.class,
-                    Joiners.equal(Assignment::getService),
-                    Joiners.equal(Assignment::getMusician))
-            .filter((a1, a2) -> !a1.equals(a2)
-                    && isAllowedMultiRole(a1, a2)
-                    && (VOCALIST_ROLES.contains(a1.getRole()) || VOCALIST_ROLES.contains(a2.getRole())))
-            .reward(HardSoftScore.ofSoft(VOCALIST_DOUBLE_UP_REWARD))
-            .asConstraint("Reward instrumentalist doubling as backup vocalist");
-}
+        return factory.forEach(Assignment.class)
+                .filter(a -> a.getMusician() != null)
+                .join(Assignment.class,
+                        Joiners.equal(Assignment::getService),
+                        Joiners.equal(Assignment::getMusician))
+                .filter((a1, a2) -> !a1.equals(a2)
+                        && isAllowedMultiRole(a1, a2)
+                        && (VOCALIST_ROLES.contains(a1.getRole()) || VOCALIST_ROLES.contains(a2.getRole())))
+                .reward(HardSoftScore.ofSoft(ConstraintWeights.get("VOCALIST_DOUBLE_UP_REWARD")))
+                .asConstraint("Reward instrumentalist doubling as backup vocalist");
+    }
 
     private Constraint couplesPreferTogetherSoft(ConstraintFactory factory) {
-    return factory.forEach(PairPreference.class)
+        return factory.forEach(PairPreference.class)
                 .filter(pp -> pp.getType() == PairPreferenceType.PREFER_TOGETHER_SAME_SERVICE_SOFT)
                 .join(Assignment.class, Joiners.equal(pp -> pp.getFirst(), Assignment::getMusician))
                 .ifNotExists(Assignment.class,
                         Joiners.equal((pp, a1) -> a1.getService(), Assignment::getService),
                         Joiners.equal((pp, a1) -> pp.getSecond(), Assignment::getMusician))
-                .penalize(HardSoftScore.ofSoft(2))
+                .penalize(HardSoftScore.ofSoft(ConstraintWeights.get("COUPLE_PREFER_TOGETHER_SOFT_PENALTY")))
                 .asConstraint("Couples prefer serving together (optional)");
     }
 
     private Constraint couplesPreferTogetherStrong(ConstraintFactory factory) {
-    return factory.forEach(PairPreference.class)
+        return factory.forEach(PairPreference.class)
                 .filter(pp -> pp.getType() == PairPreferenceType.PREFER_TOGETHER_SAME_SERVICE_STRONG)
                 .join(Assignment.class, Joiners.equal(pp -> pp.getFirst(), Assignment::getMusician))
                 .ifNotExists(Assignment.class,
                         Joiners.equal((pp, a1) -> a1.getService(), Assignment::getService),
                         Joiners.equal((pp, a1) -> pp.getSecond(), Assignment::getMusician))
-                .penalize(HardSoftScore.ofSoft(10))
+                .penalize(HardSoftScore.ofSoft(ConstraintWeights.get("COUPLE_PREFER_TOGETHER_STRONG_PENALTY")))
                 .asConstraint("Couples prefer serving together (one car - strong)");
     }
 
@@ -235,28 +257,23 @@ public class ScheduleConstraintProvider implements ConstraintProvider {
                                         .equals(a2.getService().getDate())
                         )
                 )
-                .penalize(HardSoftScore.ofSoft(3))
+                .penalize(HardSoftScore.ofSoft(ConstraintWeights.get("CONSECUTIVE_SERVICE_PENALTY")))
                 .asConstraint("Penalize consecutive weekly assignments");
     }
 
-    // Reward vocalist assignments (more favorable than other constraints)
     private Constraint secondVocalistPreference(ConstraintFactory factory) {
         return factory.forEach(Assignment.class)
                 .filter(a -> a.getRole() == Role.VOCALIST_2 && a.getMusician() != null)
-                // Only reward if musician is explicitly qualified for VOCALIST_2
                 .filter(a -> a.getMusician().canPerformRole(Role.VOCALIST_2))
-                .reward(HardSoftScore.ofSoft(4))
+                .reward(HardSoftScore.ofSoft(ConstraintWeights.get("SECOND_VOCALIST_REWARD")))
                 .asConstraint("Reward having vocalist_2");
     }
 
-    // Reward additional vocalists (VOCALIST_3) - soft, optional
     private Constraint thirdVocalistPreference(ConstraintFactory factory) {
         return factory.forEach(Assignment.class)
                 .filter(a -> a.getRole() == Role.VOCALIST_3 && a.getMusician() != null)
-                // Only reward if musician is explicitly qualified for VOCALIST_3
                 .filter(a -> a.getMusician().canPerformRole(Role.VOCALIST_3))
-                .reward(HardSoftScore.ofSoft(1))
+                .reward(HardSoftScore.ofSoft(ConstraintWeights.get("THIRD_VOCALIST_REWARD")))
                 .asConstraint("Reward having vocalist_3");
     }
-
 }

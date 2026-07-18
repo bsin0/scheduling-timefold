@@ -4,13 +4,24 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+        Spring Boot parent POM. This manages consistent, tested version numbers
+        for all spring-boot-starter-* dependencies below, so we don't have to
+        hand-pick versions that might not work together.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.4</version>
+        <relativePath/>
+    </parent>
+
     <groupId>org.churchband</groupId>
     <artifactId>scheduling</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -26,13 +37,73 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.12.0</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.4.11</version>
         </dependency>
 
+        <!--
+            Spring Boot Web: lets us expose REST endpoints (e.g. POST /solve)
+            for the future HTML frontend to call. Not used yet — added now so
+            the project compiles once we start writing controllers.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--
+            Spring Data JPA: gives us repository interfaces (e.g.
+            MusicianRepository) instead of hand-written SQL/JDBC for reading
+            and writing musicians, blockouts, and pair preferences.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!--
+            Spring Security: protects the /api endpoints behind a login.
+            Single admin account for now (per current requirements) —
+            no per-musician accounts, since musicians never touch the app
+            directly.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!--
+            H2: a small embedded database that stores its data in a local
+            file. No separate database server to install or run — good fit
+            for a single-church roster app.
+        -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Spring Boot's testing starter (JUnit, etc.) — useful once we add tests -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                Lets us eventually run the app with `mvn spring-boot:run` once
+                we add a Spring Boot main class. Doesn't affect your existing
+                way of running App.java directly.
+            -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
