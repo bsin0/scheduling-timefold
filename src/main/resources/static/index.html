@@ -437,6 +437,35 @@
     <div id="blockouts-status" class="status-msg"></div>
   </section>
 
+  <!-- ===================== PAIR PREFERENCES ===================== -->
+  <section id="pairs-section">
+    <h2><span class="eyebrow">02b</span> Pair Preferences</h2>
+    <p class="hint">Couples or pairs who should — or shouldn't — serve on the same Sunday.</p>
+
+    <div id="pairs-table-wrap">
+      <p class="empty">Sign in to load pair preferences.</p>
+    </div>
+
+    <div class="row" style="margin-top:1rem;">
+      <label>First musician
+        <select id="pp-first-select"></select>
+      </label>
+      <label>Second musician
+        <select id="pp-second-select"></select>
+      </label>
+      <label>Preference
+        <select id="pp-type-select">
+          <option value="PREFER_TOGETHER_SAME_SERVICE_SOFT">Prefer together (soft)</option>
+          <option value="PREFER_TOGETHER_SAME_SERVICE_STRONG">Prefer together (strong, e.g. one car)</option>
+          <option value="NOT_TOGETHER_SAME_SERVICE_HARD">Must NOT serve together (hard)</option>
+        </select>
+      </label>
+      <button id="pp-add-btn">Add preference</button>
+    </div>
+
+    <div id="pairs-status" class="status-msg"></div>
+  </section>
+
   <!-- ===================== SOLVE SETTINGS ===================== -->
   <section id="solve-section">
     <h2><span class="eyebrow">03</span> Solve Settings</h2>
@@ -558,7 +587,8 @@ document.getElementById("auth-btn").addEventListener("click", async () => {
     }
     updateAuthBanner(true);
     await loadRoleOptions();
-    loadMusicians();
+    await loadMusicians();
+    loadPairPreferences();
     loadWeights();
   } catch (e) {
     alert("Could not reach the server: " + e.message);
@@ -1023,6 +1053,102 @@ async function removeBlockout(musicianId, date, skipRerender) {
     }
   } catch (e) {
     showStatus("blockouts-status", e.message, true);
+  }
+}
+
+// ============================================================
+// Section 02b: Pair Preferences
+// ============================================================
+let pairsCache = [];
+
+async function loadPairPreferences() {
+  try {
+    const res = await apiFetch("/api/pair-preferences");
+    pairsCache = await res.json();
+    renderPairsTable();
+    renderPairMusicianSelects();
+  } catch (e) {
+    showStatus("pairs-status", e.message, true);
+  }
+}
+
+function renderPairMusicianSelects() {
+  const options = musiciansCache.map(m => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
+  document.getElementById("pp-first-select").innerHTML = options;
+  document.getElementById("pp-second-select").innerHTML = options;
+}
+
+const PAIR_TYPE_LABELS = {
+  PREFER_TOGETHER_SAME_SERVICE_SOFT: "Prefer together (soft)",
+  PREFER_TOGETHER_SAME_SERVICE_STRONG: "Prefer together (strong)",
+  NOT_TOGETHER_SAME_SERVICE_HARD: "Must NOT serve together"
+};
+
+function renderPairsTable() {
+  const wrap = document.getElementById("pairs-table-wrap");
+  if (pairsCache.length === 0) {
+    wrap.innerHTML = '<p class="empty">No pair preferences yet.</p>';
+    return;
+  }
+  let html = '<table><thead><tr><th>First</th><th>Second</th><th>Preference</th><th></th></tr></thead><tbody>';
+  for (const p of pairsCache) {
+    const isHard = p.type === "NOT_TOGETHER_SAME_SERVICE_HARD";
+    const tagStyle = isHard ? 'background:var(--bad-soft); color:var(--bad);' : '';
+    html += `<tr>
+      <td>${escapeHtml(p.firstMusicianName)}</td>
+      <td>${escapeHtml(p.secondMusicianName)}</td>
+      <td><span class="role-tag" style="${tagStyle}">${PAIR_TYPE_LABELS[p.type] || p.type}</span></td>
+      <td><button class="danger" data-delete-pair="${p.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Delete</button></td>
+    </tr>`;
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll("[data-delete-pair]").forEach(btn =>
+    btn.addEventListener("click", () => deletePairPreference(btn.dataset.deletePair)));
+}
+
+document.getElementById("pp-add-btn").addEventListener("click", async () => {
+  const firstMusicianId = document.getElementById("pp-first-select").value;
+  const secondMusicianId = document.getElementById("pp-second-select").value;
+  const type = document.getElementById("pp-type-select").value;
+
+  if (!firstMusicianId || !secondMusicianId) {
+    showStatus("pairs-status", "Choose two musicians.", true);
+    return;
+  }
+  if (firstMusicianId === secondMusicianId) {
+    showStatus("pairs-status", "Choose two different musicians.", true);
+    return;
+  }
+
+  try {
+    const res = await apiFetch("/api/pair-preferences", {
+      method: "POST", body: JSON.stringify({ firstMusicianId, secondMusicianId, type })
+    });
+    if (!res.ok) {
+      showStatus("pairs-status", "Could not add preference.", true);
+      return;
+    }
+    showStatus("pairs-status", "Preference added.", false);
+    loadPairPreferences();
+  } catch (e) {
+    showStatus("pairs-status", e.message, true);
+  }
+});
+
+async function deletePairPreference(id) {
+  if (!confirm("Delete this pair preference?")) return;
+  try {
+    const res = await apiFetch(`/api/pair-preferences/${id}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 204) {
+      showStatus("pairs-status", "Delete failed.", true);
+      return;
+    }
+    showStatus("pairs-status", "Deleted.", false);
+    loadPairPreferences();
+  } catch (e) {
+    showStatus("pairs-status", e.message, true);
   }
 }
 
