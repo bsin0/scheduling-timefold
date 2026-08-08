@@ -344,6 +344,49 @@
     font-size: 0.88rem;
     font-style: italic;
   }
+
+  /* ============================================================
+     Scroll boxes: fixed-height containers with internal scroll,
+     used for any section whose content length varies (tables,
+     lists, feeds). Keeps the page layout stable — scrolling
+     through 50 musicians never shifts anything below it.
+     ============================================================ */
+  .scroll-box {
+    max-height: 22rem;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .scroll-box.short { max-height: 14rem; }
+  .scroll-box.tall { max-height: 30rem; }
+  .scroll-box table { margin: 0; }
+  .scroll-box thead th {
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    z-index: 1;
+  }
+
+  /* ============================================================
+     Mobile responsiveness
+     ============================================================ */
+  @media (max-width: 640px) {
+    header { padding: 1.5rem 1rem 1rem; }
+    header h1 { font-size: 1.5rem; }
+    #auth-banner { padding: 0.5rem 1rem; flex-wrap: wrap; }
+    main { padding: 1rem; gap: 1.25rem; }
+    section { padding: 1rem; }
+    .row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+    .row label { width: 100%; }
+    .row input, .row select { width: 100%; }
+    table { font-size: 0.8rem; }
+    th, td { padding: 0.4rem 0.4rem; }
+    .cal-day { font-size: 0.75rem; }
+    .cal-header h3 { font-size: 0.9rem; }
+    .weight-row { grid-template-columns: 1fr; }
+    .weight-row .desc { margin-top: 0.2rem; }
+    .scroll-box { max-height: 16rem; }
+  }
 </style>
 </head>
 <body>
@@ -379,7 +422,7 @@
       </label>
     </div>
 
-    <div id="musicians-table-wrap">
+    <div id="musicians-table-wrap" class="scroll-box">
       <p class="empty">Sign in to load musicians.</p>
     </div>
 
@@ -442,7 +485,7 @@
     <h2><span class="eyebrow">02b</span> Pair Preferences</h2>
     <p class="hint">Couples or pairs who should — or shouldn't — serve on the same Sunday.</p>
 
-    <div id="pairs-table-wrap">
+    <div id="pairs-table-wrap" class="scroll-box short">
       <p class="empty">Sign in to load pair preferences.</p>
     </div>
 
@@ -488,7 +531,10 @@
 
     <details style="margin-top:1rem;">
       <summary style="cursor:pointer; font-size:0.9rem; color:var(--ink-soft);">Tune constraint weights</summary>
-      <div id="weights-wrap" style="margin-top:0.75rem;">
+      <div class="row" style="margin-top:0.5rem;">
+        <button id="weights-reset-all-btn" class="secondary" style="font-size:0.78rem; padding:0.3rem 0.6rem;">Reset all to defaults</button>
+      </div>
+      <div id="weights-wrap" class="scroll-box short" style="margin-top:0.75rem;">
         <p class="empty">Sign in to load weights.</p>
       </div>
     </details>
@@ -501,7 +547,7 @@
     <h2><span class="eyebrow">04</span> Results</h2>
     <p class="hint">The generated schedule and how it scored.</p>
 
-    <div id="results-wrap">
+    <div id="results-wrap" class="scroll-box tall">
       <p class="empty">No roster generated yet.</p>
     </div>
 
@@ -510,7 +556,7 @@
     <div style="margin-top:1rem;">
       <button id="explain-btn" class="secondary" disabled>Show constraint breakdown</button>
     </div>
-    <div id="explain-wrap" style="margin-top:1rem;"></div>
+    <div id="explain-wrap" class="scroll-box" style="margin-top:1rem;"></div>
   </section>
 
   <!-- ===================== MEMBER BREAKDOWN ===================== -->
@@ -518,7 +564,7 @@
     <h2><span class="eyebrow">05</span> Member Breakdown</h2>
     <p class="hint">What each musician is serving, from the most recent roster.</p>
 
-    <div id="breakdown-wrap">
+    <div id="breakdown-wrap" class="scroll-box tall">
       <p class="empty">Solve a roster to see this.</p>
     </div>
   </section>
@@ -527,13 +573,57 @@
 
 <script>
 // ============================================================
-// Auth: HTTP Basic credentials, held in memory only (never
-// localStorage). Re-prompted if the page is reloaded.
+// Auth: HTTP Basic credentials.
+//
+// Stored in sessionStorage (not localStorage) so a page refresh
+// doesn't require signing in again, but the browser tab/window being
+// closed clears it automatically. A 2-hour expiry is enforced on top
+// of that, checked on every page load.
+//
+// IMPORTANT CAVEAT: we store the already-base64-encoded Authorization
+// header value, not the raw username/password — but base64 is
+// trivially reversible, not encryption. This is a small improvement
+// (an inspector looking at sessionStorage sees an opaque blob, not an
+// immediately readable "admin:password123" string) but NOT real
+// protection. Anyone with JS execution on this page (e.g. via an XSS
+// vulnerability, should one ever be introduced) could still read and
+// decode it. Genuine protection would mean the server issuing a
+// short-lived, revocable session token instead of the browser ever
+// holding re-sendable credentials at all — a bigger change, worth
+// doing before this app is exposed beyond a trusted local network.
 // ============================================================
+const AUTH_STORAGE_KEY = "churchband_auth";
+const AUTH_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 let authHeader = null;
 
 function setAuthHeader(username, password) {
   authHeader = "Basic " + btoa(username + ":" + password);
+  sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+    header: authHeader,
+    expiresAt: Date.now() + AUTH_TIMEOUT_MS
+  }));
+}
+
+function clearAuthHeader() {
+  authHeader = null;
+  sessionStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function loadStoredAuth() {
+  const raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed.header || !parsed.expiresAt || Date.now() > parsed.expiresAt) {
+      sessionStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+    return parsed.header;
+  } catch (e) {
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    return null;
+  }
 }
 
 async function apiFetch(path, options = {}) {
@@ -544,7 +634,7 @@ async function apiFetch(path, options = {}) {
   });
   const res = await fetch(path, Object.assign({}, options, { headers }));
   if (res.status === 401) {
-    authHeader = null;
+    clearAuthHeader();
     updateAuthBanner(false);
     throw new Error("Sign-in expired or incorrect. Please sign in again.");
   }
@@ -568,7 +658,7 @@ function updateAuthBanner(signedIn) {
 
 document.getElementById("auth-btn").addEventListener("click", async () => {
   if (authHeader) {
-    authHeader = null;
+    clearAuthHeader();
     updateAuthBanner(false);
     return;
   }
@@ -582,7 +672,7 @@ document.getElementById("auth-btn").addEventListener("click", async () => {
     const res = await fetch("/api/musicians", { headers: { "Authorization": authHeader } });
     if (res.status === 401) {
       alert("Incorrect username or password.");
-      authHeader = null;
+      clearAuthHeader();
       return;
     }
     updateAuthBanner(true);
@@ -592,9 +682,35 @@ document.getElementById("auth-btn").addEventListener("click", async () => {
     loadWeights();
   } catch (e) {
     alert("Could not reach the server: " + e.message);
-    authHeader = null;
+    clearAuthHeader();
   }
 });
+
+// On page load, try to restore a still-valid session from sessionStorage
+// instead of always prompting fresh. If the stored header turns out to
+// be rejected (e.g. the server restarted with different credentials),
+// apiFetch's 401 handling clears it automatically on first use.
+(async function restoreSession() {
+  const stored = loadStoredAuth();
+  if (!stored) return;
+  authHeader = stored;
+  try {
+    const res = await fetch("/api/musicians", { headers: { "Authorization": authHeader } });
+    if (res.status === 401) {
+      clearAuthHeader();
+      return;
+    }
+    updateAuthBanner(true);
+    await loadRoleOptions();
+    await loadMusicians();
+    loadPairPreferences();
+    loadWeights();
+  } catch (e) {
+    // Server unreachable at load time — leave signed out, user can
+    // retry via the Sign in button once it's back.
+    clearAuthHeader();
+  }
+})();
 
 function showStatus(elId, message, isError) {
   const el = document.getElementById(elId);
@@ -613,14 +729,26 @@ let roleOptions = [];
 async function loadRoleOptions() {
   try {
     const res = await apiFetch("/api/roles");
+    if (!res.ok) {
+      throw new Error("Server returned " + res.status);
+    }
     roleOptions = await res.json();
+    if (!Array.isArray(roleOptions) || roleOptions.length === 0) {
+      throw new Error("Role list came back empty.");
+    }
   } catch (e) {
-    showStatus("musicians-status", "Could not load role list: " + e.message, true);
+    console.error("Failed to load role options:", e);
+    showStatus("musicians-status", "Could not load role list — try refreshing the page: " + e.message, true);
+    roleOptions = [];
   }
 }
 
 function renderRoleCheckboxes(selectedRoles) {
   const wrap = document.getElementById("mf-roles-checkboxes");
+  if (roleOptions.length === 0) {
+    wrap.innerHTML = '<p class="empty">Roles failed to load. Try refreshing the page (Ctrl+F5) and sign in again.</p>';
+    return;
+  }
   wrap.innerHTML = roleOptions.map(role => {
     const checked = selectedRoles.includes(role) ? "checked" : "";
     return `<label class="role-checkbox">
@@ -790,21 +918,34 @@ let editingMusicianId = null;
 function openMusicianForm(id) {
   const form = document.getElementById("musician-form");
   form.style.display = "block";
-  if (id) {
-    const m = musiciansCache.find(x => x.id === id);
-    editingMusicianId = id;
-    document.getElementById("mf-id").value = m.id;
-    document.getElementById("mf-id").disabled = true;
-    document.getElementById("mf-name").value = m.name;
-    document.getElementById("mf-maxweeks").value = m.maxWeeksPerMonth ?? "";
-    renderRoleCheckboxes(m.roles);
+
+  const proceed = () => {
+    if (id) {
+      const m = musiciansCache.find(x => x.id === id);
+      editingMusicianId = id;
+      document.getElementById("mf-id").value = m.id;
+      document.getElementById("mf-id").disabled = true;
+      document.getElementById("mf-name").value = m.name;
+      document.getElementById("mf-maxweeks").value = m.maxWeeksPerMonth ?? "";
+      renderRoleCheckboxes(m.roles);
+    } else {
+      editingMusicianId = null;
+      document.getElementById("mf-id").value = "";
+      document.getElementById("mf-id").disabled = false;
+      document.getElementById("mf-name").value = "";
+      document.getElementById("mf-maxweeks").value = "";
+      renderRoleCheckboxes([]);
+    }
+  };
+
+  // Defensive: if roles somehow haven't loaded yet (e.g. opened the
+  // form very quickly after page load, or the earlier load failed),
+  // try loading them again before rendering checkboxes rather than
+  // silently showing an empty roles area.
+  if (roleOptions.length === 0) {
+    loadRoleOptions().then(proceed);
   } else {
-    editingMusicianId = null;
-    document.getElementById("mf-id").value = "";
-    document.getElementById("mf-id").disabled = false;
-    document.getElementById("mf-name").value = "";
-    document.getElementById("mf-maxweeks").value = "";
-    renderRoleCheckboxes([]);
+    proceed();
   }
 }
 
@@ -871,18 +1012,43 @@ let dragging = false;
 
 function renderBlockoutMusicianSelect() {
   const sel = document.getElementById("bo-musician-select");
+  const previousSelection = calMusicianId; // preserve across re-renders
+
   sel.innerHTML = musiciansCache.map(m => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
-  if (musiciansCache.length > 0) {
+
+  const stillExists = previousSelection && musiciansCache.some(m => m.id === previousSelection);
+
+  if (stillExists) {
+    // Keep whoever was already selected — this is the common case:
+    // renderBlockoutMusicianSelect() gets called again after every
+    // blockout save (via loadMusicians()), and without this the
+    // dropdown was silently snapping back to the first musician in
+    // the list every time, making it look like clicks were "jumping"
+    // to a different person.
+    calMusicianId = previousSelection;
+    sel.value = calMusicianId;
+  } else if (musiciansCache.length > 0) {
     const today = new Date();
-    calYear = today.getFullYear();
-    calMonth = today.getMonth();
+    if (calYear === undefined) {
+      calYear = today.getFullYear();
+      calMonth = today.getMonth();
+    }
     calMusicianId = musiciansCache[0].id;
-    renderCalendar();
+    sel.value = calMusicianId;
   }
-  sel.addEventListener("change", () => {
-    calMusicianId = sel.value;
-    renderCalendar();
-  });
+
+  renderCalendar();
+
+  // Only wire this once — re-wiring on every render would (again)
+  // stack up duplicate change listeners, same class of bug as the
+  // earlier mouseup issue.
+  if (!sel.dataset.wired) {
+    sel.addEventListener("change", () => {
+      calMusicianId = sel.value;
+      renderCalendar();
+    });
+    sel.dataset.wired = "true";
+  }
 }
 
 function toIsoDate(y, m, d) {
@@ -937,11 +1103,43 @@ function renderCalendar() {
     renderCalendar();
   });
 
-  wireCalendarDragSelect(wrap, m);
+  wireCalendarDragSelect(wrap);
   renderBlockoutList(calMusicianId);
 }
 
-function wireCalendarDragSelect(wrap, musician) {
+// Attached ONCE at page load, not per-render. Previously this was
+// added inside wireCalendarDragSelect(), which ran on every
+// renderCalendar() call — meaning every musician switch added ANOTHER
+// mouseup listener to document, and old ones (closing over whichever
+// musician was selected at the time) never went away. Clicking would
+// then fire multiple stale handlers, and whichever musician's listener
+// was added first (typically the first musician in the list) would
+// win — this was the root cause of blockouts always landing on
+// adrian_d regardless of the currently selected musician.
+//
+// Fix: one listener, permanently attached, that reads calMusicianId
+// LIVE at the moment of the click rather than capturing a musician
+// object in a closure at render time.
+document.addEventListener("mouseup", async () => {
+  if (!dragging) return;
+  dragging = false;
+
+  const wrap = document.getElementById("bo-calendar-wrap");
+  const cells = wrap.querySelectorAll(".cal-day:not(.empty-cell)");
+  cells.forEach(c => c.classList.remove("drag-preview"));
+
+  if (!dragStartDate) return;
+  const endDate = wrap.dataset.dragEnd || dragStartDate;
+  const musicianId = calMusicianId; // read live, not from a closure
+  const start = dragStartDate;
+  dragStartDate = null;
+
+  if (musicianId) {
+    await applyBlockoutRange(musicianId, start, endDate);
+  }
+});
+
+function wireCalendarDragSelect(wrap) {
   const cells = wrap.querySelectorAll(".cal-day:not(.empty-cell)");
 
   cells.forEach(cell => {
@@ -955,19 +1153,6 @@ function wireCalendarDragSelect(wrap, musician) {
       if (dragging) updateDragPreview(cells, dragStartDate, cell.dataset.date);
     });
   });
-
-  document.addEventListener("mouseup", async () => {
-    if (!dragging) return;
-    dragging = false;
-    const endCell = wrap.querySelector(".cal-day.drag-preview:last-of-type");
-    cells.forEach(c => c.classList.remove("drag-preview"));
-    if (!dragStartDate) return;
-
-    const previewDates = Array.from(wrap.querySelectorAll("[data-drag-end]"));
-    const endDate = wrap.dataset.dragEnd || dragStartDate;
-    await applyBlockoutRange(musician.id, dragStartDate, endDate);
-    dragStartDate = null;
-  }, { once: false });
 }
 
 function updateDragPreview(cells, startIso, endIso) {
@@ -1166,18 +1351,52 @@ async function loadWeights() {
     }
     wrap.innerHTML = weights.map(w => `
       <div class="weight-row">
-        <span class="name">${w.name}</span>
+        <span class="name">${w.name}${w.isDefault ? '' : ' <span style="color:var(--accent);">●</span>'}</span>
         <input type="number" data-weight="${w.name}" value="${w.value}" style="width:5rem;">
-        <button class="secondary" data-save-weight="${w.name}" style="font-size:0.75rem; padding:0.3rem 0.6rem;">Save</button>
-        <span class="desc">${escapeHtml(w.description || "")}</span>
+        <span style="display:flex; gap:0.4rem;">
+          <button class="secondary" data-save-weight="${w.name}" style="font-size:0.75rem; padding:0.3rem 0.6rem;">Save</button>
+          <button class="secondary" data-reset-weight="${w.name}" title="Reset to default (${w.defaultValue})" style="font-size:0.75rem; padding:0.3rem 0.6rem;" ${w.isDefault ? "disabled" : ""}>↺</button>
+        </span>
+        <span class="desc">${escapeHtml(w.description || "")} <span style="opacity:0.7;">(default: ${w.defaultValue})</span></span>
       </div>
     `).join("");
     wrap.querySelectorAll("[data-save-weight]").forEach(btn =>
       btn.addEventListener("click", () => saveWeight(btn.dataset.saveWeight)));
+    wrap.querySelectorAll("[data-reset-weight]").forEach(btn =>
+      btn.addEventListener("click", () => resetWeight(btn.dataset.resetWeight)));
   } catch (e) {
     wrap.innerHTML = `<p class="empty">${e.message}</p>`;
   }
 }
+
+async function resetWeight(name) {
+  try {
+    const res = await apiFetch(`/api/weights/${encodeURIComponent(name)}/reset`, { method: "POST" });
+    if (!res.ok) {
+      showStatus("solve-status", `Could not reset ${name}.`, true);
+      return;
+    }
+    showStatus("solve-status", `${name} reset to default.`, false);
+    loadWeights();
+  } catch (e) {
+    showStatus("solve-status", e.message, true);
+  }
+}
+
+document.getElementById("weights-reset-all-btn").addEventListener("click", async () => {
+  if (!confirm("Reset ALL constraint weights to their default values?")) return;
+  try {
+    const res = await apiFetch("/api/weights/reset-all", { method: "POST" });
+    if (!res.ok) {
+      showStatus("solve-status", "Could not reset weights.", true);
+      return;
+    }
+    showStatus("solve-status", "All weights reset to defaults.", false);
+    loadWeights();
+  } catch (e) {
+    showStatus("solve-status", e.message, true);
+  }
+});
 
 async function saveWeight(name) {
   const input = document.querySelector(`[data-weight="${name}"]`);
@@ -1191,6 +1410,7 @@ async function saveWeight(name) {
       return;
     }
     showStatus("solve-status", `${name} updated to ${value}.`, false);
+    loadWeights();
   } catch (e) {
     showStatus("solve-status", e.message, true);
   }

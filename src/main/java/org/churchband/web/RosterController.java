@@ -130,17 +130,16 @@ public class RosterController {
 
             boolean isViolation = impact.hardScore() < 0 || impact.softScore() < 0;
 
-            // Only violations get a per-match breakdown (matches App.java's
-            // old behavior) — rewards are just shown as a count, since
-            // listing every rewarded pairing isn't as useful for debugging
-            // as seeing exactly who's causing a penalty.
-            List<String> matchDescriptions = isViolation
-                    ? cmt.getConstraintMatchSet().stream()
-                        .sorted(Comparator.comparing(cm -> cm.getScore().toShortString()))
-                        .map(ConstraintView::describeMatch)
-                        .filter(s -> !s.isBlank())
-                        .collect(Collectors.toList())
-                    : List.of();
+            // Show the detailed per-match breakdown for BOTH violations
+            // (penalties) and rewards — previously this was restricted to
+            // violations only, which meant reward constraints like
+            // "Reward having vocalist_2" showed a score and count but no
+            // way to see WHICH musicians/assignments earned that reward.
+            List<String> matchDescriptions = cmt.getConstraintMatchSet().stream()
+                    .sorted(Comparator.comparing(cm -> cm.getScore().toShortString()))
+                    .map(ConstraintView::describeMatch)
+                    .filter(s -> !s.isBlank())
+                    .collect(Collectors.toList());
 
             return new ConstraintView(label, impact.toShortString(), cmt.getConstraintMatchSet().size(),
                     isViolation, matchDescriptions);

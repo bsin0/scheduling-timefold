@@ -75,6 +75,17 @@ public class WeightService {
     }
 
     /**
+     * Returns each weight's default value, keyed by name — used by the
+     * REST layer to include "here's what this resets to" alongside the
+     * current value, without a separate round trip per weight.
+     */
+    public Map<String, Integer> defaultValuesByName() {
+        Map<String, Integer> out = new LinkedHashMap<>();
+        DEFAULTS.forEach((name, def) -> out.put(name, def.value()));
+        return out;
+    }
+
+    /**
      * Typed lookup used by ScheduleConstraintProvider at solve time.
      * Falls back to the coded default if a weight is somehow missing
      * from the database (shouldn't normally happen after seeding, but
@@ -98,5 +109,34 @@ public class WeightService {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown weight name: " + name));
         entity.setValue(newValue);
         return weightRepository.save(entity);
+    }
+
+    /**
+     * The coded default value for a weight — what it was seeded with on
+     * first run. Used by the "reset to default" feature; kept separate
+     * from the current live value in the database, which may have since
+     * been changed.
+     */
+    public int getDefaultValue(String name) {
+        DefaultWeight fallback = DEFAULTS.get(name);
+        if (fallback == null) {
+            throw new IllegalArgumentException("Unknown weight name: " + name);
+        }
+        return fallback.value();
+    }
+
+    /** Resets one weight back to its coded default value. */
+    public WeightEntity resetToDefault(String name) {
+        return update(name, getDefaultValue(name));
+    }
+
+    /** Resets every weight back to its coded default value. */
+    public List<WeightEntity> resetAllToDefaults() {
+        DEFAULTS.forEach((name, def) ->
+                weightRepository.findById(name).ifPresent(entity -> {
+                    entity.setValue(def.value());
+                    weightRepository.save(entity);
+                }));
+        return listAll();
     }
 }
