@@ -19,12 +19,18 @@ public final class Musician {
 
     private final int maxWeeksPerMonth; // Integer.MAX_VALUE means no limit
 
-    public Musician(String id, String name, Set<Role> roles, Set<LocalDate> blockedDates, int maxWeeksPerMonth) {
+    // When true, the musician is excluded from the solver entirely.
+    // They stay in the DB with all their data intact (blockouts, pair prefs,
+    // history) — they just won't be assigned any roles on future solves.
+    private final boolean excluded;
+
+    public Musician(String id, String name, Set<Role> roles, Set<LocalDate> blockedDates, int maxWeeksPerMonth, boolean excluded) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
         this.roles = Objects.requireNonNull(roles, "roles");
         this.blockedDates = Objects.requireNonNull(blockedDates, "blockedDates");
         this.maxWeeksPerMonth = maxWeeksPerMonth;
+        this.excluded = excluded;
     }
 
     public String getId() { return id; }
@@ -32,6 +38,7 @@ public final class Musician {
     public Set<Role> getRoles() { return roles; }
     public Set<LocalDate> getBlockedDates() { return blockedDates; }
     public int getMaxWeeksPerMonth() { return maxWeeksPerMonth; }
+    public boolean isExcluded() { return excluded; }
 
     public boolean isAvailableOn(LocalDate date) {
         return !blockedDates.contains(date);

@@ -91,11 +91,14 @@ public class RosterService {
     /**
      * Loads every musician from the database, attaching their blocked
      * dates. Equivalent to RosterCsv.loadMusiciansCsv(path).
+     * Excluded musicians (excluded=true) are filtered out so the solver
+     * never sees them.
      */
     public List<Musician> loadMusicians() {
         List<MusicianEntity> entities = musicianRepository.findAll();
 
         return entities.stream()
+                .filter(e -> !e.isExcluded())
                 .map(this::toDomainMusician)
                 .collect(Collectors.toList());
     }
@@ -119,7 +122,8 @@ public class RosterService {
                 entity.getName(),
                 entity.getRoles(),
                 blockedDates,
-                maxWeeksPerMonth
+                maxWeeksPerMonth,
+                entity.isExcluded()
         );
     }
 

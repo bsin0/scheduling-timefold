@@ -53,11 +53,14 @@ public class MusicianEntity {
     @Column(name = "max_weeks_per_month")
     private Integer maxWeeksPerMonth;
 
+    @Column(name = "excluded", nullable = false, columnDefinition = "boolean default false")
+    private boolean excluded;
+
     // JPA requires a no-arg constructor to construct entities via reflection.
     protected MusicianEntity() {
     }
 
-    public MusicianEntity(String id, String name, Set<Role> roles, Integer maxWeeksPerMonth) {
+    public MusicianEntity(String id, String name, Set<Role> roles, Integer maxWeeksPerMonth, boolean excluded) {
         this.id = id;
         this.name = name;
         this.roles = roles;
@@ -75,4 +78,7 @@ public class MusicianEntity {
 
     public Integer getMaxWeeksPerMonth() { return maxWeeksPerMonth; }
     public void setMaxWeeksPerMonth(Integer maxWeeksPerMonth) { this.maxWeeksPerMonth = maxWeeksPerMonth; }
+
+    public boolean isExcluded() { return excluded; }
+    public void setExcluded(boolean excluded) { this.excluded = excluded; }
 }

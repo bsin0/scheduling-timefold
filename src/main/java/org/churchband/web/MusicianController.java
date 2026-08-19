@@ -60,7 +60,7 @@ public class MusicianController {
 
     /**
      * POST /api/musicians — create a new musician.
-     * Body: { "id": "adrian_d", "name": "Adrian D", "roles": ["GUITARIST"], "maxWeeksPerMonth": null }
+     * Body: { "id": "adrian_d", "name": "Adrian D", "roles": ["GUITARIST"], "maxWeeksPerMonth": null, "excluded": false }
      */
     @PostMapping
     public ResponseEntity<MusicianView> create(@RequestBody MusicianRequest request) {
@@ -68,16 +68,17 @@ public class MusicianController {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
         MusicianEntity entity = new MusicianEntity(
-                request.id(), request.name(), request.roles(), request.maxWeeksPerMonth());
+                request.id(), request.name(), request.roles(), request.maxWeeksPerMonth(), request.excluded());
         musicianRepository.save(entity);
         return ResponseEntity.status(HttpStatus.CREATED).body(toView(entity));
     }
 
     /**
      * PUT /api/musicians/{id} — update an existing musician's name, roles,
-     * or max weeks per month. Does NOT touch blockouts — use the separate
+     * excluded status, or max weeks per month. Does NOT touch blockouts — use the separate
      * blockout endpoints below for those.
      */
+    @Transactional
     @PutMapping("/{id}")
     public ResponseEntity<MusicianView> update(@PathVariable String id, @RequestBody MusicianRequest request) {
         return musicianRepository.findById(id)
@@ -85,6 +86,7 @@ public class MusicianController {
                     entity.setName(request.name());
                     entity.setRoles(request.roles());
                     entity.setMaxWeeksPerMonth(request.maxWeeksPerMonth());
+                    entity.setExcluded(request.excluded());
                     musicianRepository.save(entity);
                     return ResponseEntity.ok(toView(entity));
                 })
@@ -180,14 +182,15 @@ public class MusicianController {
                 .sorted()
                 .collect(Collectors.toList());
         return new MusicianView(entity.getId(), entity.getName(), entity.getRoles(),
-                entity.getMaxWeeksPerMonth(), blockedDates);
+                entity.getMaxWeeksPerMonth(), blockedDates, entity.isExcluded());
     }
 
     public record MusicianView(String id, String name, Set<Role> roles,
-                                Integer maxWeeksPerMonth, List<LocalDate> blockedDates) {
+                                Integer maxWeeksPerMonth, List<LocalDate> blockedDates,
+                                boolean excluded) {
     }
 
-    public record MusicianRequest(String id, String name, Set<Role> roles, Integer maxWeeksPerMonth) {
+    public record MusicianRequest(String id, String name, Set<Role> roles, Integer maxWeeksPerMonth, boolean excluded) {
     }
 
     public record BlockoutRequest(LocalDate date, LocalDate endDate) {

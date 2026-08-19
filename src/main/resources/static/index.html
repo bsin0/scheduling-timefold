@@ -335,6 +335,18 @@
     color: var(--bad);
     font-weight: 600;
   }
+
+  /* Excluded musician rows — greyed out */
+  tr.musician-excluded td:first-child .excl-label {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    display: block;
+  }
+  tr.musician-excluded td:first-child .excl-name {
+    color: var(--ink-soft);
+    text-decoration: line-through;
+    text-decoration-color: var(--ink-soft);
+  }
   .cal-day.today { border-color: var(--accent); }
   .cal-day:not(.empty-cell):hover { background: var(--accent-soft); }
   .cal-day.drag-preview { background: var(--accent-soft); }
@@ -442,6 +454,10 @@
         </label>
         <label>Max weeks/month (blank = no limit)
           <input type="number" id="mf-maxweeks" min="1">
+        </label>
+        <label style="flex-direction:row; align-items:center; gap:0.5rem;">
+          <input type="checkbox" id="mf-excluded" style="width:auto; margin:0;">
+          Exclude from solver
         </label>
       </div>
       <div class="row">
@@ -849,12 +865,14 @@ function renderMusiciansTable() {
 
   for (const m of pageItems) {
     const roles = m.roles.map(r => `<span class="role-tag">${r}</span>`).join("");
-    html += `<tr>
-      <td>${escapeHtml(m.name)}<br><span style="color:var(--ink-soft); font-size:0.78rem;">${escapeHtml(m.id)}</span></td>
+    const exclClass = m.excluded ? "musician-excluded" : "";
+    html += `<tr class="${exclClass}">
+      <td>${escapeHtml(m.name)}<br><span style="color:var(--ink-soft); font-size:0.78rem;">${escapeHtml(m.id)}</span>${m.excluded ? "<br><span class="excl-label">⊘ Excluded</span>" : ""}</td>
       <td>${roles}</td>
       <td>${m.maxWeeksPerMonth ?? "—"}</td>
       <td>${m.blockedDates.length}</td>
       <td>
+        <button class="secondary" data-exclude="${m.id}" title="${m.excluded ? 'Re-include in solver' : 'Exclude from solver'}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">${m.excluded ? "✓" : "⊘"}</button>
         <button class="secondary" data-edit="${m.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Edit</button>
         <button class="danger" data-delete="${m.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Delete</button>
       </td>
@@ -863,6 +881,8 @@ function renderMusiciansTable() {
   html += "</tbody></table>";
   wrap.innerHTML = html;
 
+  wrap.querySelectorAll("[data-exclude]").forEach(btn =>
+    btn.addEventListener("click", () => toggleExcludeMusician(btn.dataset.exclude)));
   wrap.querySelectorAll("[data-edit]").forEach(btn =>
     btn.addEventListener("click", () => openMusicianForm(btn.dataset.edit)));
   wrap.querySelectorAll("[data-delete]").forEach(btn =>
@@ -927,6 +947,7 @@ function openMusicianForm(id) {
       document.getElementById("mf-id").disabled = true;
       document.getElementById("mf-name").value = m.name;
       document.getElementById("mf-maxweeks").value = m.maxWeeksPerMonth ?? "";
+      document.getElementById("mf-excluded").checked = m.excluded;
       renderRoleCheckboxes(m.roles);
     } else {
       editingMusicianId = null;
@@ -966,7 +987,8 @@ document.getElementById("mf-save-btn").addEventListener("click", async () => {
   }
   const maxWeeksPerMonth = maxWeeksRaw ? parseInt(maxWeeksRaw, 10) : null;
 
-  const body = JSON.stringify({ id, name, roles, maxWeeksPerMonth });
+  const excluded = document.getElementById("mf-excluded").checked;
+  const body = JSON.stringify({ id, name, roles, maxWeeksPerMonth, excluded });
   try {
     let res;
     if (editingMusicianId) {
@@ -986,6 +1008,27 @@ document.getElementById("mf-save-btn").addEventListener("click", async () => {
     showStatus("musicians-status", e.message, true);
   }
 });
+
+async function toggleExcludeMusician(id) {
+  const m = musiciansCache.find(x => x.id === id);
+  if (!m) return;
+  const action = m.excluded ? "re-include" : "exclude";
+  if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${m.name} from solver?`)) return;
+  try {
+    const res = await apiFetch(`/api/musicians/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ id: m.id, name: m.name, roles: Array.from(m.roles), maxWeeksPerMonth: m.maxWeeksPerMonth, excluded: !m.excluded })
+    });
+    if (!res.ok) {
+      showStatus("musicians-status", "Exclude failed.", true);
+      return;
+    }
+    showStatus("musicians-status", `${action.charAt(0).toUpperCase() + action.slice(1)}d.`, false);
+    loadMusicians();
+  } catch (e) {
+    showStatus("musicians-status", e.message, true);
+  }
+}
 
 async function deleteMusician(id) {
   if (!confirm(`Delete ${id}? This also removes their blockouts.`)) return;
