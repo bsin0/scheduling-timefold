@@ -37,7 +37,8 @@ public class LiveSolveController {
 
     @PostMapping("/start")
     public StartResponse start(@RequestBody StartRequest request) {
-        int solveTimeSeconds = request.solveTimeSeconds() != null ? request.solveTimeSeconds() : 20;
+        Integer requestedTime = request.solveTimeSeconds();
+        int solveTimeSeconds = requestedTime != null ? requestedTime : 20;
         String sessionId = liveSolveService.startSolve(request.startDate(), request.numberOfWeeks(), solveTimeSeconds);
         return new StartResponse(sessionId);
     }

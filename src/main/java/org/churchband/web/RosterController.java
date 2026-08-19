@@ -59,7 +59,8 @@ public class RosterController {
      */
     @PostMapping("/solve")
     public SolveResponse solve(@RequestBody SolveRequest request) {
-        int solveTimeSeconds = request.solveTimeSeconds() != null ? request.solveTimeSeconds() : 20;
+        Integer requestedTime = request.solveTimeSeconds();
+        int solveTimeSeconds = requestedTime != null ? requestedTime : 20;
         Schedule solved = rosterService.solve(request.startDate(), request.numberOfWeeks(), solveTimeSeconds);
         return SolveResponse.from(solved);
     }

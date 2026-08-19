@@ -29,34 +29,24 @@ import jakarta.persistence.Table;
 @Table(name = "musicians")
 public class MusicianEntity {
 
-    // Human-chosen id (e.g. "adrian_d"), same ids used in your old CSVs.
-    // Using this as the primary key keeps pair_preferences and blockouts
-    // referencing something readable instead of an auto-generated number.
     @Id
     private String id;
 
     @Column(nullable = false)
     private String name;
 
-    // Roles stored as a separate table (musician_roles) with one row per
-    // role, e.g. ("adrian_d", "GUITARIST"). @ElementCollection handles this
-    // automatically — no need to hand-write a join table entity.
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "musician_roles", joinColumns = @JoinColumn(name = "musician_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
     private Set<Role> roles = new LinkedHashSet<>();
 
-    // Null/absent means no limit (matches Musician.getMaxWeeksPerMonth()'s
-    // Integer.MAX_VALUE convention, but we store null in the DB rather than
-    // a magic number, since that's clearer in a database context).
     @Column(name = "max_weeks_per_month")
     private Integer maxWeeksPerMonth;
 
     @Column(name = "excluded", nullable = false, columnDefinition = "boolean default false")
     private boolean excluded;
 
-    // JPA requires a no-arg constructor to construct entities via reflection.
     protected MusicianEntity() {
     }
 
@@ -65,6 +55,15 @@ public class MusicianEntity {
         this.name = name;
         this.roles = roles;
         this.maxWeeksPerMonth = maxWeeksPerMonth;
+        // FIX: this line was missing — the excluded parameter was being
+        // accepted but never actually assigned to the field, so every
+        // musician created via this constructor silently got
+        // excluded=false regardless of what the caller passed in. This
+        // meant the exclude/include toggle likely appeared to work in
+        // the UI (the request succeeded) but never actually took effect
+        // on newly-created musicians going through this constructor
+        // path — e.g. via MusicianController.create().
+        this.excluded = excluded;
     }
 
     public String getId() { return id; }

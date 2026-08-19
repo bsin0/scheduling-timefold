@@ -866,19 +866,20 @@ function renderMusiciansTable() {
   for (const m of pageItems) {
     const roles = m.roles.map(r => `<span class="role-tag">${r}</span>`).join("");
     const exclClass = m.excluded ? "musician-excluded" : "";
+    const exclLabel = m.excluded ? '<br><span class="excl-label">⊘ Excluded</span>' : '';
     html += `<tr class="${exclClass}">
-      <td>${escapeHtml(m.name)}<br><span style="color:var(--ink-soft); font-size:0.78rem;">${escapeHtml(m.id)}</span>${m.excluded ? "<br><span class="excl-label">⊘ Excluded</span>" : ""}</td>
+      <td>${escapeHtml(m.name)}<br><span style="color:var(--ink-soft); font-size:0.78rem;">${escapeHtml(m.id)}</span>${exclLabel}</td>
       <td>${roles}</td>
       <td>${m.maxWeeksPerMonth ?? "—"}</td>
       <td>${m.blockedDates.length}</td>
       <td>
-        <button class="secondary" data-exclude="${m.id}" title="${m.excluded ? 'Re-include in solver' : 'Exclude from solver'}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">${m.excluded ? "✓" : "⊘"}</button>
+        <button class="secondary" data-exclude="${m.id}" title="${m.excluded ? 'Re-include in solver' : 'Exclude from solver'}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">${m.excluded ? '✓' : '⊘'}</button>
         <button class="secondary" data-edit="${m.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Edit</button>
         <button class="danger" data-delete="${m.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Delete</button>
       </td>
     </tr>`;
   }
-  html += "</tbody></table>";
+
   wrap.innerHTML = html;
 
   wrap.querySelectorAll("[data-exclude]").forEach(btn =>
@@ -1586,6 +1587,7 @@ function renderResults(result) {
     }
     html += "</tbody></table>";
   }
+
   wrap.innerHTML = html;
 }
 

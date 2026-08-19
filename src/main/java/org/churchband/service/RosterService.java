@@ -14,6 +14,7 @@ import org.churchband.domain.ConstraintWeights;
 import org.churchband.domain.Musician;
 import org.churchband.domain.PairPreference;
 import org.churchband.domain.Role;
+import org.churchband.domain.RosterRoles;
 import org.churchband.domain.Schedule;
 import org.churchband.domain.ScheduleConstraintProvider;
 import org.churchband.domain.SundayService;
@@ -91,8 +92,6 @@ public class RosterService {
     /**
      * Loads every musician from the database, attaching their blocked
      * dates. Equivalent to RosterCsv.loadMusiciansCsv(path).
-     * Excluded musicians (excluded=true) are filtered out so the solver
-     * never sees them.
      */
     public List<Musician> loadMusicians() {
         List<MusicianEntity> entities = musicianRepository.findAll();
@@ -113,9 +112,8 @@ public class RosterService {
         // MusicianEntity stores "no limit" as null; Musician (the domain
         // object) uses Integer.MAX_VALUE for the same concept, matching
         // what RosterCsv did when a CSV cell was blank.
-        int maxWeeksPerMonth = entity.getMaxWeeksPerMonth() == null
-                ? Integer.MAX_VALUE
-                : entity.getMaxWeeksPerMonth();
+        Integer maxWeeksValue = entity.getMaxWeeksPerMonth();
+        int maxWeeksPerMonth = maxWeeksValue != null ? maxWeeksValue : Integer.MAX_VALUE;
 
         return new Musician(
                 entity.getId(),
@@ -231,20 +229,7 @@ public class RosterService {
             services.add(new SundayService(startDate.plusWeeks(i)));
         }
 
-        List<Role> roles = List.of(
-                Role.WORSHIP_LEADER,
-                Role.VOCALIST,
-                Role.VOCALIST_2,
-                Role.VOCALIST_3,
-                Role.BASSIST,
-                Role.DRUMMER,
-                Role.KEYBOARDIST,
-                Role.GUITARIST,
-                Role.BAND_DIRECTOR,
-                Role.SOUND,
-                Role.LYRICS,
-                Role.CAMERA
-        );
+        List<Role> roles = RosterRoles.WEEKLY_ROLES;
 
         List<Assignment> assignments = new ArrayList<>();
         for (SundayService service : services) {

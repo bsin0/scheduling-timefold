@@ -3,7 +3,7 @@ package org.churchband.domain;
 import java.time.LocalDate;
 
 public class SundayService {
-    private LocalDate date;
+    private final LocalDate date;
 
     public SundayService(LocalDate date) {
         this.date = date;
