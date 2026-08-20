@@ -121,7 +121,7 @@ public class RosterService {
                 entity.getRoles(),
                 blockedDates,
                 maxWeeksPerMonth,
-                entity.isExcluded()
+                entity.isExcluded() 
         );
     }
 
@@ -139,6 +139,7 @@ public class RosterService {
         List<PairPreferenceEntity> entities = pairPreferenceRepository.findAll();
 
         return entities.stream()
+                .filter(PairPreferenceEntity::isEnabled)
                 .map(e -> {
                     Musician first = byId.get(e.getFirstMusicianId());
                     Musician second = byId.get(e.getSecondMusicianId());

@@ -21,10 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * REST endpoints for managing pair preferences — couples (or any pair)
  * who should or shouldn't serve on the same Sunday.
- *
- * These were previously only editable via direct SQL in the H2 console,
- * migrated once from pairs.csv and never exposed through the API. This
- * closes that gap with the same CRUD pattern as MusicianController.
  */
 @RestController
 @RequestMapping("/api/pair-preferences")
@@ -51,6 +47,7 @@ public class PairPreferenceController {
      * POST /api/pair-preferences
      * Body: { "firstMusicianId": "adrian_d", "secondMusicianId": "sarah_l",
      *         "type": "PREFER_TOGETHER_SAME_SERVICE_STRONG" }
+     * New pair preferences are always created enabled.
      */
     @PostMapping
     public ResponseEntity<PairPreferenceView> create(@RequestBody PairPreferenceRequest request) {
@@ -81,6 +78,27 @@ public class PairPreferenceController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * PUT /api/pair-preferences/{id}/enabled — toggle enable/disable.
+     * Body: { "enabled": false }
+     *
+     * This is the mechanism that unblocks excluding a musician who has
+     * active pair preferences (see MusicianController.update()) — an
+     * admin disables the preference here first, which then also makes
+     * it invisible to the solver (RosterService.loadPairPreferences()
+     * filters to enabled-only), before the exclude action is retried.
+     */
+    @PutMapping("/{id}/enabled")
+    public ResponseEntity<PairPreferenceView> setEnabled(@PathVariable Long id, @RequestBody SetEnabledRequest request) {
+        return pairPreferenceRepository.findById(id)
+                .map(entity -> {
+                    entity.setEnabled(request.enabled());
+                    pairPreferenceRepository.save(entity);
+                    return ResponseEntity.ok(toView(entity));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     /** DELETE /api/pair-preferences/{id} */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
@@ -97,14 +115,17 @@ public class PairPreferenceController {
         String secondName = musicianRepository.findById(entity.getSecondMusicianId())
                 .map(m -> m.getName()).orElse(entity.getSecondMusicianId());
         return new PairPreferenceView(entity.getId(), entity.getFirstMusicianId(), firstName,
-                entity.getSecondMusicianId(), secondName, entity.getType());
+                entity.getSecondMusicianId(), secondName, entity.getType(), entity.isEnabled());
     }
 
     public record PairPreferenceView(Long id, String firstMusicianId, String firstMusicianName,
                                       String secondMusicianId, String secondMusicianName,
-                                      PairPreferenceType type) {
+                                      PairPreferenceType type, boolean enabled) {
     }
 
     public record PairPreferenceRequest(String firstMusicianId, String secondMusicianId, PairPreferenceType type) {
+    }
+
+    public record SetEnabledRequest(boolean enabled) {
     }
 }

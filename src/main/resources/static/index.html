@@ -1020,6 +1020,12 @@ async function toggleExcludeMusician(id) {
       method: "PUT",
       body: JSON.stringify({ id: m.id, name: m.name, roles: Array.from(m.roles), maxWeeksPerMonth: m.maxWeeksPerMonth, excluded: !m.excluded })
     });
+    if (res.status === 409) {
+      const body = await res.json();
+      const details = (body.blockingPairPreferences || []).map(d => "• " + d).join("\n");
+      alert(`${body.message}\n\n${details}\n\nGo to Pair Preferences and disable the listed preference(s), then try excluding again.`);
+      return;
+    }
     if (!res.ok) {
       showStatus("musicians-status", "Exclude failed.", true);
       return;
@@ -1319,15 +1325,23 @@ function renderPairsTable() {
     wrap.innerHTML = '<p class="empty">No pair preferences yet.</p>';
     return;
   }
-  let html = '<table><thead><tr><th>First</th><th>Second</th><th>Preference</th><th></th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>First</th><th>Second</th><th>Preference</th><th>Status</th><th></th></tr></thead><tbody>';
   for (const p of pairsCache) {
     const isHard = p.type === "NOT_TOGETHER_SAME_SERVICE_HARD";
     const tagStyle = isHard ? 'background:var(--bad-soft); color:var(--bad);' : '';
-    html += `<tr>
+    const rowStyle = p.enabled ? '' : 'opacity:0.5;';
+    const statusLabel = p.enabled
+      ? '<span class="role-tag" style="background:var(--good-soft); color:var(--good);">Enabled</span>'
+      : '<span class="role-tag" style="background:var(--bad-soft); color:var(--bad);">Disabled</span>';
+    html += `<tr style="${rowStyle}">
       <td>${escapeHtml(p.firstMusicianName)}</td>
       <td>${escapeHtml(p.secondMusicianName)}</td>
       <td><span class="role-tag" style="${tagStyle}">${PAIR_TYPE_LABELS[p.type] || p.type}</span></td>
-      <td><button class="danger" data-delete-pair="${p.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Delete</button></td>
+      <td>${statusLabel}</td>
+      <td>
+        <button class="secondary" data-toggle-pair="${p.id}" data-enabled="${p.enabled}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">${p.enabled ? "Disable" : "Enable"}</button>
+        <button class="danger" data-delete-pair="${p.id}" style="font-size:0.75rem; padding:0.3rem 0.5rem;">Delete</button>
+      </td>
     </tr>`;
   }
   html += "</tbody></table>";
@@ -1335,6 +1349,24 @@ function renderPairsTable() {
 
   wrap.querySelectorAll("[data-delete-pair]").forEach(btn =>
     btn.addEventListener("click", () => deletePairPreference(btn.dataset.deletePair)));
+  wrap.querySelectorAll("[data-toggle-pair]").forEach(btn =>
+    btn.addEventListener("click", () => togglePairEnabled(btn.dataset.togglePair, btn.dataset.enabled === "true")));
+}
+
+async function togglePairEnabled(id, currentlyEnabled) {
+  try {
+    const res = await apiFetch(`/api/pair-preferences/${id}/enabled`, {
+      method: "PUT", body: JSON.stringify({ enabled: !currentlyEnabled })
+    });
+    if (!res.ok) {
+      showStatus("pairs-status", "Could not update preference status.", true);
+      return;
+    }
+    showStatus("pairs-status", !currentlyEnabled ? "Preference enabled." : "Preference disabled.", false);
+    loadPairPreferences();
+  } catch (e) {
+    showStatus("pairs-status", e.message, true);
+  }
 }
 
 document.getElementById("pp-add-btn").addEventListener("click", async () => {
